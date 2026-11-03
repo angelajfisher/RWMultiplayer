@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Test unwinder
+      - name: Test Mono capture bridge
         run: cargo test --locked --manifest-path native/Cargo.toml
       - name: Build universal library
         run: bash native/build-macos.sh

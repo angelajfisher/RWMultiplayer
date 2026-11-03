@@ -249,13 +249,12 @@ public static class DeferredStackTracingImpl
         {
             // Reuse the address cache for frame classification. Native unwinding
             // supplies frames directly, so JIT instruction decoding is unnecessary.
-            var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)ret);
-            if (ji == IntPtr.Zero)
+            if (ret >= 0)
             {
                 info.stackUsage = NotJit;
                 return;
             }
-            info.stackUsage = Native.mono_jit_info_get_method(ji) == traceMethod ? MacTraceMethod : RbpBased;
+            info.stackUsage = (IntPtr)~ret == traceMethod ? MacTraceMethod : RbpBased;
         }
         else
             info.stackUsage = GetStackUsage(ret);

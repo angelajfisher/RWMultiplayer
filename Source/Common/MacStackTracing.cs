@@ -11,28 +11,39 @@ public static class MacStackTracing
 {
     public static bool Selected { get; private set; }
     public static bool Available => capture != null;
+    public static void Disable() => capture = null;
     private static IntPtr library;
+    private static IntPtr monoLibrary;
+    private static IntPtr stackWalk;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private unsafe delegate uint Capture(long* frames, uint capacity, uint skip);
+    private unsafe delegate uint Capture(IntPtr walk, long* frames, uint capacity, uint skip);
     private static Capture? capture;
 
-    public static void Initialize(string path)
+    public static void Initialize(string path, string monoPath = "libmonobdwgc-2.0.dylib")
     {
         Selected = true;
+        capture = null;
+        stackWalk = IntPtr.Zero;
         if (RuntimeInformation.ProcessArchitecture != Architecture.X64)
             throw new PlatformNotSupportedException("macOS tracing currently requires an x86-64 process (Rosetta on Apple Silicon)");
         library = dlopen(path, 2); // RTLD_NOW
         if (library == IntPtr.Zero)
             throw new DllNotFoundException(Marshal.PtrToStringAnsi(dlerror()));
-        var symbol = dlsym(library, "mp_capture_stack");
+        var symbol = dlsym(library, "mp_capture_mono_stack_v1");
         if (symbol == IntPtr.Zero)
-            throw new EntryPointNotFoundException("mp_capture_stack");
+            throw new EntryPointNotFoundException("mp_capture_mono_stack_v1 (outdated tracing library)");
+        monoLibrary = dlopen(monoPath, 2);
+        if (monoLibrary == IntPtr.Zero)
+            throw new DllNotFoundException(Marshal.PtrToStringAnsi(dlerror()));
+        stackWalk = dlsym(monoLibrary, "mono_stack_walk_no_il");
+        if (stackWalk == IntPtr.Zero)
+            throw new EntryPointNotFoundException("mono_stack_walk_no_il");
         capture = Marshal.GetDelegateForFunctionPointer<Capture>(symbol);
         try
         {
             if (!CapturesManagedFrames())
-                throw new NotSupportedException("The native unwinder could not capture Mono managed frames");
+                throw new NotSupportedException("Mono's stack walker could not capture a known managed caller");
         }
         catch
         {
@@ -50,8 +61,7 @@ public static class MacStackTracing
             BindingFlags.Static | BindingFlags.NonPublic)!.MethodHandle.Value;
         for (int i = 0; i < count; i++)
         {
-            var info = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)frames[i]);
-            if (info != IntPtr.Zero && Native.mono_jit_info_get_method(info) == method)
+            if (frames[i] < 0 && (IntPtr)~frames[i] == method)
                 return true;
         }
         return false;
@@ -63,7 +73,7 @@ public static class MacStackTracing
         int capacity = Math.Min(frames.Length, maxFrames);
         if (capture == null || capacity <= 0) return 0;
         fixed (long* ptr = frames)
-            return (int)capture(ptr, (uint)capacity, (uint)Math.Max(0, skip));
+            return (int)capture(stackWalk, ptr, (uint)capacity, (uint)Math.Max(0, skip));
     }
 
     [DllImport("/usr/lib/libSystem.B.dylib")]
