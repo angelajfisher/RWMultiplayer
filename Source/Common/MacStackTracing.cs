@@ -58,11 +58,12 @@ public static class MacStackTracing
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static unsafe int Trace(long[] frames, int skip)
+    public static unsafe int Trace(long[] frames, int skip, int maxFrames = int.MaxValue)
     {
-        if (capture == null || frames.Length == 0) return 0;
+        int capacity = Math.Min(frames.Length, maxFrames);
+        if (capture == null || capacity <= 0) return 0;
         fixed (long* ptr = frames)
-            return (int)capture(ptr, (uint)frames.Length, (uint)Math.Max(0, skip));
+            return (int)capture(ptr, (uint)capacity, (uint)Math.Max(0, skip));
     }
 
     [DllImport("/usr/lib/libSystem.B.dylib")]

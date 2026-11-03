@@ -15,6 +15,14 @@ contains both architectures to allow further investigation.
 The C# integration discards native and capture helper frames, then applies the
 existing method-name normalization, Harmony original-method lookup and hashing to
 managed callers. Cross-platform trace-hash parity still requires an in-game test.
+Frame classification is cached by return address to avoid per-frame Mono calls on
+every random-number call. Normal gameplay starts with a 64-frame native capture,
+retrying up to 256 only if native/helper frames leave too few managed frames for
+the existing 32-frame report. This preserves trace events rather than sampling
+them, but native unwinding still has a runtime cost: leave tracing off for normal
+play if it substantially reduces TPS, and enable it to investigate a reproducible
+desync. Rosetta TPS must be measured in-game; native smoke tests do not establish
+gameplay performance.
 
 ## Build
 
