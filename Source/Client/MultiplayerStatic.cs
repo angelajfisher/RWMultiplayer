@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using HarmonyLib;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -48,6 +49,20 @@ namespace Multiplayer.Client
 
         static MultiplayerStatic()
         {
+            if (Application.platform is RuntimePlatform.OSXPlayer or RuntimePlatform.OSXEditor)
+            {
+                try
+                {
+                    MacStackTracing.Initialize(Path.Combine(Multiplayer.modContentPack.RootDir,
+                        "Libraries", "macOS", "libmultiplayer_stacktrace.dylib"));
+                    Log.Message("Multiplayer: using native macOS desync stack tracing");
+                }
+                catch (Exception e)
+                {
+                    Log.Warning($"Multiplayer: macOS desync stack tracing unavailable; tracing disabled. {e.Message}");
+                }
+            }
+
             Native.InitLmfPtr(
                 Application.platform switch
                 {

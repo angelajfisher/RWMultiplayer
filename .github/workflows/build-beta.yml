@@ -12,7 +12,10 @@ on:
       - 'README.md'
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-macos.yml
   build:
+    needs: native
     name: Build beta
     runs-on: ubuntu-latest
     env:
@@ -34,11 +37,16 @@ jobs:
     - name: Build Mod
       run: dotnet build ${{ env.SLN_PATH }} --configuration Release --no-restore
 
+    - uses: actions/download-artifact@v4
+      with:
+        name: macos-stacktrace
+        path: Libraries/macOS
+
     - name: Package files
       run: |
         sed -i "s/<name>\(.*\)<\/name>\$/<name>\1 [Continuous]<\/name>/" About/About.xml
         mkdir -p output/Multiplayer
-        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ output/Multiplayer
+        mv About/ Assemblies/ AssembliesCustom/ Defs/ Languages/ Textures/ Libraries/ output/Multiplayer
         cd output/
         zip -r ../Multiplayer-beta.zip Multiplayer/
         cd ../

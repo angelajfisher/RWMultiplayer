@@ -9,6 +9,8 @@ on:
   pull_request
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-macos.yml
   builds:
     name: Builds
     runs-on: ubuntu-latest

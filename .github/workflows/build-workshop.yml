@@ -7,7 +7,10 @@ on:
       - 'v*'
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-macos.yml
   build:
+    needs: native
     name: Build workshop
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +25,11 @@ jobs:
       with:
         dotnet-version: 9.x
       
+    - uses: actions/download-artifact@v4
+      with:
+        name: macos-stacktrace
+        path: Libraries/macOS
+
     - name: Run workshop bundler
       run: ./workshop_bundler.sh
 

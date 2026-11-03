@@ -27,7 +27,7 @@ namespace Multiplayer.Client.Desyncs
 
         public static void Postfix()
         {
-            if (Native.LmfPtr == 0) return;
+            if (!MacStackTracing.Available && Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
             var logItem = StackTraceLogItemRaw.GetFromPool();

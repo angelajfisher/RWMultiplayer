@@ -46,8 +46,9 @@ namespace Multiplayer.Client
 
         public static unsafe void InitLmfPtr(NativeOS os)
         {
-            // Don't bother on 32 bit runtimes
-            if (IntPtr.Size == 4)
+            // macOS uses the native unwinder, never a guessed private Mono offset.
+            // Don't bother on 32 bit runtimes either.
+            if (IntPtr.Size == 4 || os == NativeOS.OSX)
                 return;
 
             const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
@@ -64,8 +65,6 @@ namespace Multiplayer.Client
                 LmfPtr = threadInfoPtr + 0x450; // Updated: 1.5 was 0x460, -16 bytes = 0x450 (following Windows pattern)
             else if (os == NativeOS.Windows)
                 LmfPtr = threadInfoPtr + 0x418; // Updated for 1.6. Seems to work so far.
-            else if (os == NativeOS.OSX)
-                LmfPtr = threadInfoPtr + 0x3E8; // Updated: 1.5 was 0x3F8, -16 bytes = 0x3E8 (following Windows pattern)
             else if (os == NativeOS.Dummy)
             {
                 LmfPtr = (long)Marshal.AllocHGlobal(3 * 8);

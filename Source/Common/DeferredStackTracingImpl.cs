@@ -111,8 +111,44 @@ public static class DeferredStackTracingImpl
 
     public static AddrTable hashTable = new();
 
+    [ThreadStatic] private static long[]? nativeFrames;
+    private static readonly IntPtr traceMethod = AccessTools.DeclaredMethod(
+        typeof(DeferredStackTracingImpl), nameof(TraceImpl))!.MethodHandle.Value;
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public static unsafe int TraceImpl(long[] traceIn, ref int hash, int skipFrames = 0)
     {
+        if (MacStackTracing.Selected)
+        {
+            // Discard the native unwinder, P/Invoke and capture helper frames.
+            // Hash the same managed callers as the legacy walker, so native
+            // implementation details do not create cross-platform desyncs.
+            nativeFrames ??= new long[256];
+            int count = MacStackTracing.Trace(nativeFrames, 0);
+            bool foundTraceMethod = false;
+            int written = 0;
+            for (int i = 0; i < count; i++)
+            {
+                long ret = nativeFrames[i];
+                var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)ret);
+                if (ji == IntPtr.Zero) continue;
+                if (!foundTraceMethod)
+                {
+                    foundTraceMethod = Native.mono_jit_info_get_method(ji) == traceMethod;
+                    continue;
+                }
+                if (skipFrames-- > 0) continue;
+                if (written == traceIn.Length) break;
+                traceIn[written] = ret;
+                ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
+                if (info.addr == 0) UpdateNewElement(ref info, ret);
+                if (written < HashInfluence && info.nameHash != 0)
+                    hash = HashCombineInt(hash, (int)info.nameHash);
+                written++;
+            }
+            return written;
+        }
+
         if (Native.LmfPtr == 0)
             return 0;
 
@@ -194,7 +230,8 @@ public static class DeferredStackTracingImpl
     private static void UpdateNewElement(ref AddrInfo info, long ret)
     {
         info.addr = ret;
-        info.stackUsage = GetStackUsage(ret);
+        // Native unwinding supplies frames directly; do not decode JIT instructions.
+        info.stackUsage = MacStackTracing.Selected ? 0 : GetStackUsage(ret);
 
         var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
 
@@ -266,6 +303,9 @@ public static class DeferredStackTracingImpl
 
     static DeferredStackTracingImpl()
     {
+        // The macOS unwinder needs neither x86 instruction decoding nor GetRbp.
+        if (MacStackTracing.Selected) return;
+
         // All of this code assumes that the rbp pointer offset stays the same throughout the method invocations.
         // Mono is generally allowed to recompile code, which could cause issues for us, but GetRpb is annotated as
         // NoInline and NoOptimization to heavily discourage any changes and avoid breaking.
