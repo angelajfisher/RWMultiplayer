@@ -102,6 +102,7 @@ public static class DeferredStackTracingImpl
 {
     const long NotJit = long.MaxValue;
     const long RbpBased = long.MaxValue - 1;
+    const long MacTraceMethod = long.MaxValue - 2;
 
     const long UsesRbpAsGpr = 1L << 50;
     const long UsesRbx = 1L << 51;
@@ -124,29 +125,43 @@ public static class DeferredStackTracingImpl
             // Hash the same managed callers as the legacy walker, so native
             // implementation details do not create cross-platform desyncs.
             nativeFrames ??= new long[256];
-            int count = MacStackTracing.Trace(nativeFrames, 0);
-            bool foundTraceMethod = false;
-            int written = 0;
-            for (int i = 0; i < count; i++)
+            int capacity = Math.Min(nativeFrames.Length, Math.Max(64, traceIn.Length + 16));
+            int initialHash = hash;
+            while (true)
             {
-                long ret = nativeFrames[i];
-                var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)ret);
-                if (ji == IntPtr.Zero) continue;
-                if (!foundTraceMethod)
+                int count = MacStackTracing.Trace(nativeFrames, 0, capacity);
+                bool foundTraceMethod = false;
+                int written = 0;
+                int remainingToSkip = skipFrames;
+                hash = initialHash;
+                for (int i = 0; i < count; i++)
                 {
-                    foundTraceMethod = Native.mono_jit_info_get_method(ji) == traceMethod;
-                    continue;
+                    long ret = nativeFrames[i];
+                    ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
+                    // Resolve Mono metadata once per return address, not once
+                    // per frame on every random-number call.
+                    if (info.addr == 0) UpdateNewElement(ref info, ret);
+                    if (info.stackUsage == NotJit) continue;
+                    if (!foundTraceMethod)
+                    {
+                        foundTraceMethod = info.stackUsage == MacTraceMethod;
+                        continue;
+                    }
+                    if (remainingToSkip-- > 0) continue;
+                    if (written == traceIn.Length) break;
+                    traceIn[written] = ret;
+                    if (written < HashInfluence && info.nameHash != 0)
+                        hash = HashCombineInt(hash, (int)info.nameHash);
+                    written++;
                 }
-                if (skipFrames-- > 0) continue;
-                if (written == traceIn.Length) break;
-                traceIn[written] = ret;
-                ref var info = ref hashTable.GetOrCreateAddrInfo(ret);
-                if (info.addr == 0) UpdateNewElement(ref info, ret);
-                if (written < HashInfluence && info.nameHash != 0)
-                    hash = HashCombineInt(hash, (int)info.nameHash);
-                written++;
+
+                // Most traces need only 32 managed frames. Avoid unwinding the
+                // entire native stack; retry deeper only if helper/native frames
+                // used up the budget before we obtained the requested trace.
+                if (written == traceIn.Length || count < capacity || capacity == nativeFrames.Length)
+                    return written;
+                capacity = Math.Min(capacity * 2, nativeFrames.Length);
             }
-            return written;
         }
 
         if (Native.LmfPtr == 0)
@@ -230,8 +245,20 @@ public static class DeferredStackTracingImpl
     private static void UpdateNewElement(ref AddrInfo info, long ret)
     {
         info.addr = ret;
-        // Native unwinding supplies frames directly; do not decode JIT instructions.
-        info.stackUsage = MacStackTracing.Selected ? 0 : GetStackUsage(ret);
+        if (MacStackTracing.Selected)
+        {
+            // Reuse the address cache for frame classification. Native unwinding
+            // supplies frames directly, so JIT instruction decoding is unnecessary.
+            var ji = Native.mono_jit_info_table_find(Native.DomainPtr, (IntPtr)ret);
+            if (ji == IntPtr.Zero)
+            {
+                info.stackUsage = NotJit;
+                return;
+            }
+            info.stackUsage = Native.mono_jit_info_get_method(ji) == traceMethod ? MacTraceMethod : RbpBased;
+        }
+        else
+            info.stackUsage = GetStackUsage(ret);
 
         var normalizedMethodNameBetweenOS = Native.MethodNameNormalizedFromAddr(ret, true);
 

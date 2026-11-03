@@ -50,6 +50,10 @@ static class Program
         var frames = new long[128];
         int hash = 0;
         int count = DeferredStackTracingImpl.TraceImpl(frames, ref hash);
+        int repeatedHash = 0;
+        int repeatedCount = DeferredStackTracingImpl.TraceImpl(new long[128], ref repeatedHash);
+        if (count != repeatedCount || hash != repeatedHash)
+            throw new Exception("Cold and cached trace captures disagree");
         bool foundCaller = false;
         for (int i = 0; i < count; i++)
         {
