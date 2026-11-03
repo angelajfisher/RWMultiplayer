@@ -13,7 +13,7 @@ mkdir -p Multiplayer
 cd Multiplayer || exit
 
 # About/ and Textures/ are shared between all versions
-cp -r ../About ../Textures .
+cp -r ../About ../Textures ../Libraries .
 
 cat <<EOF > LoadFolders.xml
 <loadFolders>

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
+using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Networking;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -74,6 +76,12 @@ namespace Multiplayer.Client
                 serverSettings.debugMode = true;
                 serverSettings.desyncTraces = true;
             }
+
+            // The legacy tracer assumes x86-64. macOS uses the packaged native
+            // unwinder instead, including under Rosetta. Fail closed if it is missing.
+            if (MacStackTracing.Selected ? !MacStackTracing.Available :
+                RuntimeInformation.ProcessArchitecture != Architecture.X64)
+                serverSettings.desyncTraces = false;
         }
 
         private string maxPlayersBuffer, autosaveBuffer;

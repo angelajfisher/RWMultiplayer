@@ -18,20 +18,20 @@ namespace Multiplayer.Client.Desyncs
         public static long maxTraceDepth;
         public static int randCalls;
 
+        public static int acc;
+
         static IEnumerable<MethodBase> TargetMethods()
         {
             yield return AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Value));
             yield return AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int));
         }
 
-        public static int acc;
-
         private static bool SupportsDeferredStackTracing =>
             RuntimeInformation.ProcessArchitecture is Architecture.X64 or Architecture.X86;
 
         public static void Postfix()
         {
-            if (Native.LmfPtr == 0) return;
+            if (!MacStackTracing.Available && Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
             var logItem = StackTraceLogItemRaw.GetFromPool();
