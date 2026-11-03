@@ -1,28 +1,35 @@
 # macOS desync tracing
 
-This ports the native `backtrace` approach from rwmt/Multiplayer commit
-`acb33a21f7ad9f35a8b9ba4ada069d0854c427b4`. The original experimental implementation
-is replaced with a bounded 32-bit-count C ABI and no per-capture managed allocation.
+This branch initially ported the `backtrace` approach from rwmt/Multiplayer commit
+`acb33a21f7ad9f35a8b9ba4ada069d0854c427b4`. Real-runtime testing reproduced its
+failure to reach Mono JIT frames under Rosetta. Capture now uses Unity Mono's
+public `mono_stack_walk_no_il` API through a small native Rust callback bridge.
+The callback writes method handles directly into a bounded reusable buffer;
+it never calls managed code during the native stack walk and has no dependencies.
 
 macOS x86-64 processes, including RimWorld running under Rosetta, load
 `Libraries/macOS/libmultiplayer_stacktrace.dylib` from the active mod directory.
-Startup checks that the unwinder can see a known Mono managed method before enabling
+Startup checks that the walker can see a known Mono managed method before enabling
 tracing. Missing libraries or a failed check disable tracing, without falling back
-to the private Mono LMF offsets. Native ARM64 tracing remains disabled: testing with
-RimWorld's ARM64 Mono runtime did not recover managed frames. The universal library
-contains both architectures to allow further investigation.
+to the private Mono LMF offsets. Native ARM64 tracing remains disabled pending
+validation of the replacement on that architecture; the universal library contains
+both architectures to allow further investigation.
 
 The C# integration discards native and capture helper frames, then applies the
 existing method-name normalization, Harmony original-method lookup and hashing to
-managed callers. Cross-platform trace-hash parity still requires an in-game test.
-Frame classification is cached by return address to avoid per-frame Mono calls on
-every random-number call. Normal gameplay starts with a 64-frame native capture,
-retrying up to 256 only if native/helper frames leave too few managed frames for
+managed callers. Captured MonoMethod handles are complemented to negative values
+so they are distinct from legacy code addresses. `Native` recognizes those tagged
+handles for hashing and report rendering. Cross-platform trace-hash parity still
+requires an in-game test.
+Frame classification and normalized hashes are cached by method identity to avoid
+per-frame Mono metadata calls on every random-number call. Normal gameplay starts
+with a 64-frame capture, retrying up to 256 only if helper frames leave too few managed frames for
 the existing 32-frame report. This preserves trace events rather than sampling
-them, but native unwinding still has a runtime cost: leave tracing off for normal
+them, but stack walking still has a runtime cost: leave tracing off for normal
 play if it substantially reduces TPS, and enable it to investigate a reproducible
 desync. Rosetta TPS must be measured in-game; native smoke tests do not establish
-gameplay performance.
+gameplay performance. Capture exceptions disable tracing and return the pooled log
+item rather than escaping into simulation logic after the RNG has advanced.
 
 ## Build
 
@@ -37,8 +44,9 @@ dotnet build Source/Client/Multiplayer.csproj --configuration Release
 Ship `Libraries` alongside `Assemblies`, `AssembliesCustom`, `About`, `Defs`,
 `Languages` and `Textures`. For Workshop's versioned layout, `Libraries` stays
 at the mod root alongside `About`. Beta and Workshop workflows build and include the native library.
-The macOS build script forces unwind metadata even for release builds, sets a
-portable install name and ad-hoc signs the universal binary.
+The macOS build script sets a portable install name and ad-hoc signs the universal
+binary. The versioned `mp_capture_mono_stack_v1` symbol rejects an old, incompatible
+native library with an explicit startup error instead of calling the wrong ABI.
 
 ## Verify
 
@@ -60,12 +68,14 @@ DYLD_LIBRARY_PATH="$rimworld_contents/Frameworks" /tmp/mono-host \
   "$PWD/Libraries/macOS/libmultiplayer_stacktrace.dylib"
 ```
 
-On Apple Silicon this command requires Rosetta. The test must find `Program:Capture`
-in the captured managed frames. Compile the host with `-arch arm64` instead to test
-the unsupported-architecture fallback.
+On Apple Silicon this command requires Rosetta. The test must find `Program.Capture`
+in the captured managed frames, render those frames, and pass cold/cached hash
+agreement, Harmony original-method normalization, skipped helper frames, generic
+callers, deep stacks and 10,000 repeated captures. Compile the host with `-arch arm64`
+instead to test the unsupported-architecture fallback.
 
 Finally, run RimWorld through Rosetta, enable **Log desync traces** when hosting,
-and confirm startup logs `using native macOS desync stack tracing`. Host/join with
+and confirm startup logs `using Mono managed macOS desync stack tracing`. Host/join with
 the same patched mod, run a colony for several minutes and reconnect. Check that
 there are no `TraceImpl` exceptions and that desync logs contain managed callers.
 Test against a Windows/Linux player too, since trace hashes participate in desync

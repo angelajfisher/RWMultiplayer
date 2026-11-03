@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-[dependencies]
-backtrace = { version = "=0.3.76", default-features = false }
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 

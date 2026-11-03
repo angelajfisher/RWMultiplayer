@@ -75,6 +75,24 @@ namespace Multiplayer.Client
 
         private static IntPtr MaybeFindHarmonyOriginalMethod(long addr, bool harmonyOriginals)
         {
+            if (addr < 0 && Desyncs.MacStackTracing.Selected)
+            {
+                // Mono's walker returns MonoMethod handles, tagged by bitwise
+                // complement so they cannot be confused with code addresses.
+                var method = (IntPtr)~addr;
+                if (harmonyOriginals && HarmonyOriginalGetter != null)
+                {
+                    var code = mono_compile_method(method);
+                    var info = mono_jit_info_table_find(DomainPtr, code + 1);
+                    if (info != IntPtr.Zero)
+                    {
+                        var original = HarmonyOriginalGetter((long)mono_jit_info_get_code_start(info));
+                        if (original != null) method = original.MethodHandle.Value;
+                    }
+                }
+                return method;
+            }
+
             var ji = mono_jit_info_table_find(DomainPtr, (IntPtr)addr);
             if (ji == IntPtr.Zero) return IntPtr.Zero;
 
@@ -109,6 +127,13 @@ namespace Multiplayer.Client
 
         public static bool GetMethodAggressiveInlining(long addr)
         {
+            if (addr < 0 && Desyncs.MacStackTracing.Selected)
+            {
+                var method = GetMethodBaseFromRuntimePointer((IntPtr)~addr);
+                return method != null &&
+                    (method.MethodImplementationFlags & MethodImplAttributes.AggressiveInlining) != 0;
+            }
+
             var domain = DomainPtr;
             var ji = mono_jit_info_table_find(domain, (IntPtr)addr);
 

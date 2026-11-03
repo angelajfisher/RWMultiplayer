@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -34,7 +35,20 @@ namespace Multiplayer.Client.Desyncs
             var trace = logItem.raw;
             int hash = 0;
             // Skip this (DeferredStackTracing.Postfix) frame. Keeping it in the trace doesn't provide any value.
-            int depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
+            int depth;
+            try
+            {
+                depth = DeferredStackTracingImpl.TraceImpl(trace, ref hash, skipFrames: 1);
+            }
+            catch (Exception e) when (MacStackTracing.Selected)
+            {
+                // Diagnostic failures must never abort the caller after Rand has
+                // advanced: doing so changes simulation behavior and causes desyncs.
+                MacStackTracing.Disable();
+                logItem.Dispose();
+                Log.Warning($"Multiplayer: disabling macOS desync tracing after capture failed: {e}");
+                return;
+            }
 
             Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
 
