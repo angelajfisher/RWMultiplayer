@@ -31,6 +31,24 @@ desync. Rosetta TPS must be measured in-game; native smoke tests do not establis
 gameplay performance. Capture exceptions disable tracing and return the pooled log
 item rather than escaping into simulation logic after the RNG has advanced.
 
+## Bounded sampling
+
+All platforms now use the same deterministic sampling policy before renting a log
+item or walking a stack: retain the first 16 eligible events per simulation tick,
+then zero-based event ordinals 16, 32, 64, 128, ... . This preserves early context
+and sparse later context during huge generation bursts. A five-million-event tick
+selects 35 stack captures. Selection does not depend on elapsed time or machine
+speed. A hard limit of 64 captures per tick and 2048 per sync opinion bounds retained
+stacks and network hashes. The latter occupy at most 8 KiB. Random-state collection
+and comparisons remain unchanged; exact call stacks for skipped events are lost.
+
+Trace reports state the policy and skipped count. `TraceEvent` identifies the
+original event number within the sync interval rather than just a sample index.
+Evicted opinions return pooled items and release their trace/hash references.
+Protocol 55 rejects older peers because comparing sampled and unsampled sequences
+would cause false trace-hash desyncs. Every player needs this build, including
+Windows/Linux players. This does not require changing the colony save format.
+
 ## Build
 
 Install Rust (stable) and Xcode command-line tools on macOS, then run:

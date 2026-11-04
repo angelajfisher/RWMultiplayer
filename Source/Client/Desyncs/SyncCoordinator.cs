@@ -196,7 +196,7 @@ namespace Multiplayer.Client
         /// <param name="info2">Information to be logged</param>
         public void TryAddInfoForDesyncLog(string info1, string info2)
         {
-            if (!ShouldCollect) return;
+            if (!TryReserveDesyncTrace(out var eventNumber)) return;
 
             OpinionInBuilding.TryMarkSimulating();
 
@@ -204,6 +204,7 @@ namespace Multiplayer.Client
 
             OpinionInBuilding.desyncStackTraces.Add(new StackTraceLogItemObj {
                 tick = TickPatch.Timer,
+                traceEvent = eventNumber,
                 hash = hash,
                 info1 = info1,
                 info2 = info2,
@@ -212,13 +213,29 @@ namespace Multiplayer.Client
             OpinionInBuilding.desyncStackTraceHashes.Add(hash);
         }
 
-        public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn, string moreInfo = null)
+        public bool TryReserveDesyncTrace(out long eventNumber)
         {
-            if (!ShouldCollect) return;
+            eventNumber = 0;
+            if (!ShouldCollect) return false;
+            var opinion = OpinionInBuilding;
+            opinion.TryMarkSimulating();
+            return opinion.traceBudget.TryCapture(TickPatch.Timer, out eventNumber);
+        }
+
+        public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn,
+            string moreInfo = null, long? reservedTraceEvent = null)
+        {
+            long eventNumber = reservedTraceEvent ?? 0;
+            if (!ShouldCollect || (!reservedTraceEvent.HasValue && !TryReserveDesyncTrace(out eventNumber)))
+            {
+                item.Dispose();
+                return;
+            }
 
             OpinionInBuilding.TryMarkSimulating();
 
             item.depth = depth;
+            item.traceEvent = eventNumber;
             item.ticksGame = Find.TickManager.ticksGameInt;
             item.rngState = Rand.StateCompressed;
             item.tick = TickPatch.Timer;
