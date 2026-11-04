@@ -6,8 +6,8 @@ namespace Multiplayer.Common
     public static class MpVersion
     {
         public const string SimpleVersion = "0.11.5";
-        // Sampled trace hashes must never be compared with unsampled older peers.
-        public const int Protocol = 55;
+        // Rolling summaries/ring indices differ from protocol 55's sampled prefix.
+        public const int Protocol = 56;
 
         public static readonly string? GitHash = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()

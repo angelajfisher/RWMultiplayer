@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using HarmonyLib;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
@@ -25,8 +26,15 @@ namespace Multiplayer.Client
 
         // Serialized only after a desync to reduce bandwidth usage in regular gameplay (only the hashes are used) and
         // help with debugging in case something goes wrong.
-        public List<StackTraceLogItem> desyncStackTraces = new();
-        public List<int> desyncStackTraceHashes = new();
+        public readonly BoundedRingBuffer<StackTraceLogItem> desyncStackTraces =
+            new(DesyncTraceSummary.Capacity, item => item.Dispose());
+        private readonly DesyncTraceSummary traceSummary = new();
+        private List<int> cachedTraceHashes;
+        public List<int> desyncStackTraceHashes
+        {
+            get => cachedTraceHashes ??= traceSummary.ToWire();
+            set => cachedTraceHashes = value;
+        }
         public readonly DesyncTraceBudget traceBudget = new();
         public bool simulating;
         public RoundModeEnum roundMode;
@@ -150,31 +158,50 @@ namespace Multiplayer.Client
                 simulating = true;
         }
 
-        public string GetFormattedStackTracesForRange(int diffAt)
+        public void AddDesyncTrace(StackTraceLogItem item)
         {
-            var start = Math.Max(0, diffAt - Multiplayer.settings.desyncTracesRadius);
-            var end = diffAt + Multiplayer.settings.desyncTracesRadius;
-            var traceId = start;
+            traceSummary.Add(item.hash);
+            desyncStackTraces.Add(item);
+            cachedTraceHashes = null;
+        }
 
-            return
-                $"Trace count: {desyncStackTraces.Count}\nTrace of first desynced map random state:\n{diffAt} {desyncStackTraces.ElementAtOrDefault(diffAt)}" +
-                $"\nTrace events considered: {traceBudget.EventsSeen}; skipped: {traceBudget.EventsSkipped}." +
-                $"\nSampling: first {DesyncTraceBudget.InitialTracesPerTick} events per tick, then power-of-two event ordinals;" +
-                $" at most {DesyncTraceBudget.MaxTracesPerTick} captures per tick and {DesyncTraceBudget.MaxTracesPerOpinion} per sync interval." +
-                "\nTrace indices refer to retained samples. Unsampled events have no stack capture; RNG-state checks remain enabled." +
-                "\n\nContext traces:\n" +
-                desyncStackTraces
-                .Skip(start)
-                .Take(end - start)
-                .Join(a => traceId++ + " " + a, "\n\n");
+        public string GetFormattedStackTracesForRange(int diffAt)
+            => GetFormattedStackTracesForRange(diffAt, Multiplayer.settings.desyncTracesRadius);
+
+        public string GetFormattedStackTracesForRange(int diffAt, int radius)
+        {
+            long total = DesyncTraceSummary.CaptureCount(desyncStackTraceHashes);
+            long first = total - desyncStackTraces.Count;
+            var text = new StringBuilder()
+                .AppendLine($"Captured stacks: {total}; retained: {desyncStackTraces.Count}; evicted: {first}.")
+                .AppendLine($"Eligible events: {traceBudget.EventsSeen}; burst events skipped: {traceBudget.EventsSkipped}.")
+                .AppendLine($"Full capture through {DesyncTraceBudget.FullTracesPerTick} events per tick; only larger ticks use power-of-two samples.")
+                .AppendLine($"The rolling digest covers all captured stacks. Ring capacity: {DesyncTraceSummary.Capacity}. RNG-state checks remain enabled.");
+
+            if (diffAt == DesyncTraceSummary.EarlierHistoryDiffers)
+                text.AppendLine("Earlier captured history differs, but its exact stacks have already been evicted.");
+            else if (diffAt >= 0 && diffAt < first)
+                text.AppendLine($"Requested capture {diffAt} has been evicted; retained captures begin at {first}.");
+            else if (diffAt >= total && diffAt >= 0)
+                text.AppendLine($"Capture {diffAt} is missing on this peer.");
+            else if (diffAt >= 0)
+                text.AppendLine($"First retained mismatch at capture {diffAt}:\n{desyncStackTraces[(int)(diffAt - first)]}");
+
+            if (desyncStackTraces.Count == 0) return text.ToString();
+            long center = diffAt >= 0 ? Math.Max(first, Math.Min(total - 1, diffAt)) : total - 1;
+            long start = Math.Max(first, center - radius);
+            long end = Math.Min(total, center + radius + 1);
+            text.AppendLine("\nRetained context (global capture indices; TraceEvent is the original eligible event number):");
+            for (long index = start; index < end; index++)
+                text.AppendLine($"{index} {desyncStackTraces[(int)(index - first)]}\n");
+            return text.ToString();
         }
 
         public void Clear()
         {
-            for (int i = 0; i < desyncStackTraces.Count; i++)
-                desyncStackTraces[i].Dispose();
             desyncStackTraces.Clear();
-            desyncStackTraceHashes.Clear();
+            traceSummary.Clear();
+            cachedTraceHashes = null;
         }
     }
 }

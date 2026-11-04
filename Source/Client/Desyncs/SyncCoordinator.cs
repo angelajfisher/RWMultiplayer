@@ -137,22 +137,8 @@ namespace Multiplayer.Client
 
         private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote, out bool found)
         {
-            found = true;
-            //Find the length of whichever stack trace is shorter.
-            var localCount = local.desyncStackTraceHashes.Count;
-            var remoteCount = remote.desyncStackTraceHashes.Count;
-            int count = Math.Min(localCount, remoteCount);
-
-            //Find the point at which the hashes differ - this is where the desync occurred.
-            for (int i = 0; i < count; i++)
-                if (local.desyncStackTraceHashes[i] != remote.desyncStackTraceHashes[i])
-                    return i;
-
-            found = false;
-            if (localCount != remoteCount)
-                return count - 1;
-
-            return -1;
+            return DesyncTraceSummary.FindFirstDifference(local.desyncStackTraceHashes,
+                remote.desyncStackTraceHashes, out found);
         }
 
         /// <summary>
@@ -202,7 +188,7 @@ namespace Multiplayer.Client
 
             int hash = Gen.HashCombineInt(info1.GetHashCode(), info2.GetHashCode());
 
-            OpinionInBuilding.desyncStackTraces.Add(new StackTraceLogItemObj {
+            OpinionInBuilding.AddDesyncTrace(new StackTraceLogItemObj {
                 tick = TickPatch.Timer,
                 traceEvent = eventNumber,
                 hash = hash,
@@ -210,7 +196,6 @@ namespace Multiplayer.Client
                 info2 = info2,
             });
 
-            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
         }
 
         public bool TryReserveDesyncTrace(out long eventNumber)
@@ -252,10 +237,7 @@ namespace Multiplayer.Client
             var hash = Gen.HashCombineInt(hashIn, depth, (int)(item.rngState >> 32), (int)item.rngState);
             item.hash = hash;
 
-            OpinionInBuilding.desyncStackTraces.Add(item);
-
-            // Track & network trace hash, for comparison with other opinions.
-            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+            OpinionInBuilding.AddDesyncTrace(item);
         }
 
         public static string MethodNameWithIL(string rawName)

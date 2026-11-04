@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../../Source/Common/Common.csproj" />
+    <ProjectReference Include="../../../Source/Client/Multiplayer.csproj" />
     <PackageReference Include="Lib.Harmony" Version="2.4.1" />
   </ItemGroup>
 </Project>
