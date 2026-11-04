@@ -58,9 +58,9 @@ public record struct SyncOpinion : IPacketBufferable
         buf.Bind(ref commandRandomStates, BinderOf.UInt());
         buf.Bind(ref worldRandomStates, BinderOf.UInt());
         buf.Bind(ref mapRandomStates, BinderOf.Identity<MapRandomState>());
-        // Max 2M trace hashes. For some big saves, the trace hashes can reach ~600k entries, so this includes
-        // some leeway.
-        buf.Bind(ref traceHashes, BinderOf.Int(), maxLength: 1<<21);
+        // Diagnostics must stay bounded even during random-heavy generation.
+        // 2048 hashes occupy 8 KiB instead of allowing multi-million-entry lists.
+        buf.Bind(ref traceHashes, BinderOf.Int(), maxLength: DesyncTraceBudget.MaxTracesPerOpinion);
 
         buf.Bind(ref simulating);
         buf.BindEnum(ref roundMode);

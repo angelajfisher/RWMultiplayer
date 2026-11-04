@@ -9,6 +9,7 @@ namespace Multiplayer.Client
     public abstract class StackTraceLogItem : IDisposable
     {
         public int tick;
+        public long traceEvent;
         public int hash;
 
         public abstract string AdditionalInfo { get; }
@@ -17,7 +18,7 @@ namespace Multiplayer.Client
 
         public override string ToString()
         {
-            return $"Tick:{tick} Hash:{hash} '{AdditionalInfo}'\n{StackTraceString}";
+            return $"Tick:{tick} TraceEvent:{traceEvent} Hash:{hash} '{AdditionalInfo}'\n{StackTraceString}";
         }
 
         public virtual void Dispose()
@@ -79,6 +80,7 @@ namespace Multiplayer.Client
         public override void Dispose()
         {
             depth = 0;
+            traceEvent = 0;
             ticksGame = 0;
             rngState = 0;
             thingId = 0;

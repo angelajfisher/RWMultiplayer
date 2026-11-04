@@ -35,6 +35,9 @@ namespace Multiplayer.Client.Desyncs
             if (!MacStackTracing.Available && Native.LmfPtr == 0) return;
             if (!ShouldAddStackTraceForDesyncLog()) return;
 
+            var sync = Multiplayer.game.sync;
+            if (!sync.TryReserveDesyncTrace(out long traceEvent)) return;
+
             var logItem = StackTraceLogItemRaw.GetFromPool();
             var trace = logItem.raw;
             int hash = 0;
@@ -54,7 +57,7 @@ namespace Multiplayer.Client.Desyncs
                 return;
             }
 
-            Multiplayer.game.sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash);
+            sync.TryAddStackTraceForDesyncLogRaw(logItem, depth, hash, reservedTraceEvent: traceEvent);
 
             acc++;
         }

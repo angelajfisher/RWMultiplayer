@@ -6,6 +6,7 @@ using System.Reflection;
 using HarmonyLib;
 using Multiplayer.Client;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Common;
 
 static class Program
 {
@@ -62,6 +63,20 @@ static class Program
         }
         timer.Stop();
         Console.WriteLine($"PASS: 10000 warm captures in {timer.ElapsedMilliseconds} ms (smoke-test stack only)");
+        var budget = new DesyncTraceBudget();
+        timer.Restart();
+        int captures = 0;
+        for (int i = 0; i < 5_000_000; i++)
+        {
+            if (!budget.TryCapture(123, out _)) continue;
+            int hash = 0;
+            if (DeferredStackTracingImpl.TraceImpl(frames, ref hash) == 0)
+                throw new Exception("Sampled burst capture returned no frames");
+            captures++;
+        }
+        timer.Stop();
+        if (captures != 35) throw new Exception($"Unexpected burst capture count: {captures}");
+        Console.WriteLine($"PASS: 5000000 burst events, {captures} managed stack captures in {timer.ElapsedMilliseconds} ms");
         return 0;
     }
 

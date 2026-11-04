@@ -6,7 +6,8 @@ namespace Multiplayer.Common
     public static class MpVersion
     {
         public const string SimpleVersion = "0.11.5";
-        public const int Protocol = 57;
+        // Custom trace hashing and report packets differ from upstream protocol 57.
+        public const int Protocol = 58;
 
         public static readonly string? GitHash = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()

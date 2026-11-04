@@ -27,6 +27,7 @@ namespace Multiplayer.Client
         // help with debugging in case something goes wrong.
         public List<StackTraceLogItem> desyncStackTraces = new();
         public List<int> desyncStackTraceHashes = new();
+        public readonly DesyncTraceBudget traceBudget = new();
         public bool simulating;
         public RoundModeEnum roundMode;
 
@@ -157,6 +158,10 @@ namespace Multiplayer.Client
 
             return
                 $"Trace count: {desyncStackTraces.Count}\nTrace of first desynced map random state:\n{diffAt} {desyncStackTraces.ElementAtOrDefault(diffAt)}" +
+                $"\nTrace events considered: {traceBudget.EventsSeen}; skipped: {traceBudget.EventsSkipped}." +
+                $"\nSampling: first {DesyncTraceBudget.InitialTracesPerTick} events per tick, then power-of-two event ordinals;" +
+                $" at most {DesyncTraceBudget.MaxTracesPerTick} captures per tick and {DesyncTraceBudget.MaxTracesPerOpinion} per sync interval." +
+                "\nTrace indices refer to retained samples. Unsampled events have no stack capture; RNG-state checks remain enabled." +
                 "\n\nContext traces:\n" +
                 desyncStackTraces
                 .Skip(start)
@@ -168,6 +173,8 @@ namespace Multiplayer.Client
         {
             for (int i = 0; i < desyncStackTraces.Count; i++)
                 desyncStackTraces[i].Dispose();
+            desyncStackTraces.Clear();
+            desyncStackTraceHashes.Clear();
         }
     }
 }
