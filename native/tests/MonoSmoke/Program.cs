@@ -75,9 +75,44 @@ static class Program
             captures++;
         }
         timer.Stop();
-        if (captures != 35) throw new Exception($"Unexpected burst capture count: {captures}");
+        if (captures != 4107) throw new Exception($"Unexpected burst capture count: {captures}");
         Console.WriteLine($"PASS: 5000000 burst events, {captures} managed stack captures in {timer.ElapsedMilliseconds} ms");
+        TestClientRing();
         return 0;
+    }
+
+    static void TestClientRing()
+    {
+        var opinion = new ClientSyncOpinion(0);
+        for (int i = 0; i < 3000; i++)
+            opinion.AddDesyncTrace(new FakeTrace { hash = i, traceEvent = i + 1 });
+        if (opinion.desyncStackTraces.Count != DesyncTraceSummary.Capacity || FakeTrace.Disposed != 952)
+            throw new Exception("Client trace ring did not evict/release correctly");
+        if (!opinion.GetFormattedStackTracesForRange(1, 2).Contains("has been evicted") ||
+            !opinion.GetFormattedStackTracesForRange(2999, 2).Contains("TraceEvent:3000"))
+            throw new Exception("Client report lost ring indices or eviction notices");
+        var remote = ClientSyncOpinion.FromNet(opinion.ToNet());
+        if (opinion.CheckForDesync(remote) != null)
+            throw new Exception("Client summary failed network roundtrip comparison");
+        opinion.Clear();
+        opinion.Clear();
+        if (FakeTrace.Disposed != 3000 || opinion.desyncStackTraceHashes.Count != 0)
+            throw new Exception("Client ring released an item twice or retained cleared hashes");
+        Console.WriteLine("PASS: client ring, report indices, network summary and disposal");
+    }
+
+    sealed class FakeTrace : StackTraceLogItem
+    {
+        public static int Disposed;
+        private bool disposed;
+        public override string AdditionalInfo => "smoke";
+        public override string StackTraceString => "smoke-frame";
+        public override void Dispose()
+        {
+            if (disposed) throw new Exception("Trace disposed twice");
+            disposed = true;
+            Disposed++;
+        }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

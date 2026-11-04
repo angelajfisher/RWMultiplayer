@@ -14,47 +14,52 @@ public class DesyncTraceBudgetTest
         for (int i = 0; i < events; i++)
             if (budget.TryCapture(100, out long eventNumber)) selectedEvents.Add(eventNumber);
 
-        Assert.That(selectedEvents.Take(16), Is.EqualTo(Enumerable.Range(1, 16).Select(i => (long)i)));
-        Assert.That(selectedEvents.Count, Is.EqualTo(35));
+        Assert.That(selectedEvents.Take(4096), Is.EqualTo(Enumerable.Range(1, 4096).Select(i => (long)i)));
+        Assert.That(selectedEvents.Count, Is.EqualTo(4107));
         Assert.That(selectedEvents.Last(), Is.EqualTo(4_194_305));
         Assert.That(budget.EventsSeen, Is.EqualTo(events));
         Assert.That(budget.EventsSkipped, Is.EqualTo(events - selectedEvents.Count));
     }
 
     [Test]
-    public void NewTickRestoresEarlyContextButCannotExceedIntervalBudget()
+    public void OrdinaryTicksRemainFullyCapturedEvenAfterRingCapacityAndBurst()
     {
         var budget = new DesyncTraceBudget();
-        for (int tick = 0; tick < 128; tick++)
-            for (int i = 0; i < 16; i++)
+        for (int tick = 0; tick < 30; tick++)
+            for (int i = 0; i < 1000; i++)
                 Assert.That(budget.TryCapture(tick, out _), Is.True);
 
-        Assert.That(budget.Captures, Is.EqualTo(DesyncTraceBudget.MaxTracesPerOpinion));
-        for (int i = 0; i < 10000; i++)
-            Assert.That(budget.TryCapture(129 + i, out _), Is.False);
-        Assert.That(budget.Captures, Is.EqualTo(DesyncTraceBudget.MaxTracesPerOpinion));
-        Assert.That(new DesyncTraceBudget().TryCapture(130, out _), Is.True);
+        Assert.That(budget.Captures, Is.EqualTo(30000));
+        for (int i = 0; i < 100_000; i++) budget.TryCapture(30, out _);
+        Assert.That(budget.EventsSkipped, Is.GreaterThan(0));
+        for (int i = 0; i < 1000; i++)
+            Assert.That(budget.TryCapture(31, out _), Is.True);
     }
 
     [Test]
     public void TickBoundaryResetsSamplingWithinInterval()
     {
         var budget = new DesyncTraceBudget();
-        for (int i = 0; i < 32; i++) budget.TryCapture(10, out _);
+        for (int i = 0; i < 100_000; i++) budget.TryCapture(10, out _);
+        long before = budget.Captures;
         for (int i = 0; i < 16; i++)
             Assert.That(budget.TryCapture(11, out _), Is.True);
-        Assert.That(budget.Captures, Is.EqualTo(33));
+        Assert.That(budget.Captures, Is.EqualTo(before + 16));
     }
 
     [Test]
     public void MaximumTracePacketStaysSmallAndPreservesRandomStateChecks()
     {
-        var opinion = MakeOpinion(DesyncTraceBudget.MaxTracesPerOpinion);
+        var summary = new DesyncTraceSummary();
+        for (int i = 0; i < 30000; i++) summary.Add(i);
+        var opinion = MakeOpinion(0);
+        opinion.traceHashes = summary.ToWire();
         var binder = BinderOf.Identity<SyncOpinion>();
         var bytes = binder.Serialize(opinion);
         var roundtrip = binder.Deserialize(bytes);
 
         Assert.That(bytes.Length, Is.LessThan(10 * 1024));
+        Assert.That(DesyncTraceSummary.CaptureCount(roundtrip.traceHashes), Is.EqualTo(30000));
         Assert.That(roundtrip.traceHashes, Is.EqualTo(opinion.traceHashes));
         Assert.That(roundtrip.commandRandomStates, Is.EqualTo(opinion.commandRandomStates));
         Assert.That(roundtrip.worldRandomStates, Is.EqualTo(opinion.worldRandomStates));
@@ -64,7 +69,7 @@ public class DesyncTraceBudgetTest
     [Test]
     public void OversizedDiagnosticListCannotBeSent()
     {
-        var opinion = MakeOpinion(DesyncTraceBudget.MaxTracesPerOpinion + 1);
+        var opinion = MakeOpinion(DesyncTraceSummary.MaxWireHashes + 1);
         Assert.Throws<WriterException>(() => BinderOf.Identity<SyncOpinion>().Serialize(opinion));
     }
 

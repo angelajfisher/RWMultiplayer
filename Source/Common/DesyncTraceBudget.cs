@@ -4,16 +4,15 @@ namespace Multiplayer.Common;
 // machine speed. A slow peer must select the same events as a fast peer.
 public sealed class DesyncTraceBudget
 {
-    public const int InitialTracesPerTick = 16;
-    public const int MaxTracesPerTick = 64;
-    public const int MaxTracesPerOpinion = 2048;
+    public const int FullTracesPerTick = 4096;
+    public const int MaxTracesPerTick = FullTracesPerTick + 64;
 
     private int? currentTick;
     private long tickEvents;
     private int tickCaptures;
 
     public long EventsSeen { get; private set; }
-    public int Captures { get; private set; }
+    public long Captures { get; private set; }
     public long EventsSkipped => EventsSeen - Captures;
 
     public bool TryCapture(int tick, out long eventNumber)
@@ -27,10 +26,10 @@ public sealed class DesyncTraceBudget
         }
 
         long ordinal = tickEvents++;
-        // Keep early context, then sample 16, 32, 64, ... rather than spending
-        // millions of stack walks on one event-generation burst.
-        bool selected = ordinal < InitialTracesPerTick || (ordinal & (ordinal - 1)) == 0;
-        if (!selected || tickCaptures >= MaxTracesPerTick || Captures >= MaxTracesPerOpinion)
+        // Ordinary ticks get full stacks. Only oversized ticks switch to sparse
+        // sampling at 4096, 8192, ... . Storage is bounded separately by the ring.
+        bool selected = ordinal < FullTracesPerTick || (ordinal & (ordinal - 1)) == 0;
+        if (!selected || tickCaptures >= MaxTracesPerTick)
             return false;
 
         tickCaptures++;

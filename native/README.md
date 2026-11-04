@@ -24,30 +24,46 @@ requires an in-game test.
 Frame classification and normalized hashes are cached by method identity to avoid
 per-frame Mono metadata calls on every random-number call. Normal gameplay starts
 with a 64-frame capture, retrying up to 256 only if helper frames leave too few managed frames for
-the existing 32-frame report. This preserves trace events rather than sampling
-them, but stack walking still has a runtime cost: leave tracing off for normal
+the existing 32-frame report. This preserves the requested depth of a captured
+stack; the event-selection policy below separately controls which stacks are captured.
+Stack walking still has a runtime cost: leave tracing off for normal
 play if it substantially reduces TPS, and enable it to investigate a reproducible
 desync. Rosetta TPS must be measured in-game; native smoke tests do not establish
 gameplay performance. Capture exceptions disable tracing and return the pooled log
 item rather than escaping into simulation logic after the RNG has advanced.
 
-## Bounded sampling
+## Full tracing with burst protection and a ring buffer
 
-All platforms now use the same deterministic sampling policy before renting a log
-item or walking a stack: retain the first 16 eligible events per simulation tick,
-then zero-based event ordinals 16, 32, 64, 128, ... . This preserves early context
-and sparse later context during huge generation bursts. A five-million-event tick
-selects 35 stack captures. Selection does not depend on elapsed time or machine
-speed. A hard limit of 64 captures per tick and 2048 per sync opinion bounds retained
-stacks and network hashes. The latter occupy at most 8 KiB. Random-state collection
-and comparisons remain unchanged; exact call stacks for skipped events are lost.
+All platforms fully capture the first 4096 eligible trace events in each simulation
+tick. Only larger ticks enter burst sampling, at zero-based ordinals 4096, 8192,
+16384, ... . The next tick starts in full-capture mode again. Selection is based
+only on tick and event ordinal, never elapsed time or machine speed. A five-million
+event tick selects 4107 stack captures. There is no interval-wide capture cutoff,
+so ordinary ticks continue to be fully captured even after earlier huge bursts.
+The bound on per-tick capture work is 4160 stacks.
 
-Trace reports state the policy and skipped count. `TraceEvent` identifies the
-original event number within the sync interval rather than just a sample index.
-Evicted opinions return pooled items and release their trace/hash references.
-Protocol 55 rejects older peers because comparing sampled and unsampled sequences
-would cause false trace-hash desyncs. Every player needs this build, including
-Windows/Linux players. This does not require changing the colony save format.
+Each sync opinion retains only its latest 2048 full stacks in a fixed-size ring.
+Overwritten records immediately return to the pool, and clearing an opinion releases
+each remaining record once. The existing 30-opinion backlog remains bounded.
+
+A 64-bit rolling digest and capture count summarize the entire captured sequence,
+including records already evicted. Up to 2048 recent hashes follow that five-integer
+header: the wire summary is at most 2053 integers (about 8 KiB), regardless of how
+many ordinary events were fully captured. The digest still detects older
+disagreement even when its exact stack is gone. Retained mismatches use global
+capture indices, and peers align their ring tails by capture count.
+
+Reports identify sampling, skipped events, evicted history and retained index
+ranges. `TraceEvent` identifies the original eligible event within the interval.
+Reports explicitly say when an exact older stack is unavailable; the digest cannot
+reconstruct it. Random-state collection and comparisons remain unchanged. Full
+tracing below the burst threshold costs more CPU than the previous aggressive
+sampler, and actual colony TPS must still be measured.
+
+Protocol 56 rejects older peers because the hybrid policy and rolling wire summary
+differ from protocol 55's sampled prefix. Every player needs this build, including
+Windows/Linux players. The colony save format is unchanged. Historical reports
+with bare trace-hash lists remain readable.
 
 ## Build
 
