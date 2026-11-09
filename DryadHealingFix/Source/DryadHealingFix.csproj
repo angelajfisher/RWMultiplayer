@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework><LangVersion>12</LangVersion>
+    <AssemblyName>DryadHealingFix</AssemblyName><Version>0.1.0</Version>
+    <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4566" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.1" ExcludeAssets="runtime" />
+    <Publicize Include="Assembly-CSharp" />
+  </ItemGroup>
+  <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths">
+    <PropertyGroup><TargetFrameworkDirectory></TargetFrameworkDirectory></PropertyGroup>
+  </Target>
+  <Target Name="CopyModAssembly" AfterTargets="Build"><Copy SourceFiles="$(TargetPath)" DestinationFolder="../Assemblies" /></Target>
+</Project>

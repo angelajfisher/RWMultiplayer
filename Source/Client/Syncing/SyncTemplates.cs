@@ -39,7 +39,10 @@ namespace Multiplayer.Client
                 if (pInfo.IsOut) {
                     pType = pType.GetElementType();
                     yield return new CodeInstruction(OpCodes.Ldarg, argIndex);
-                    yield return CreateDefaultCodes(gen, pType).Last();
+                    foreach (var code in CreateDefaultCodes(gen, pType))
+                        yield return code;
+                    if (AccessTools.IsStruct(pType))
+                        yield return new CodeInstruction(OpCodes.Stobj, pType);
                     if (AccessTools.IsClass(pType))
                         yield return new CodeInstruction(OpCodes.Stind_Ref);
                     if (AccessTools.IsValue(pType)) {
@@ -105,6 +108,7 @@ namespace Multiplayer.Client
                 var v = generator.DeclareLocal(type);
                 yield return new CodeInstruction(OpCodes.Ldloca, v);
                 yield return new CodeInstruction(OpCodes.Initobj, type);
+                yield return new CodeInstruction(OpCodes.Ldloc, v);
                 yield break;
             }
             if (AccessTools.IsValue(type)) {

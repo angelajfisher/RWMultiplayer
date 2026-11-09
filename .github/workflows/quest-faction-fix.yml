@@ -1,0 +1,40 @@
+name: Build Quest Faction Fix addon
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'QuestFactionFix/**'
+      - 'DryadHealingFix/**'
+      - '.github/workflows/quest-faction-fix.yml'
+  pull_request:
+    paths:
+      - 'QuestFactionFix/**'
+      - 'DryadHealingFix/**'
+      - '.github/workflows/quest-faction-fix.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.x
+      - name: Build Multiplayer reference assemblies
+        run: dotnet build Source/Client/Multiplayer.csproj --configuration Release
+      - name: Build standalone addon and test harness
+        run: dotnet build QuestFactionFix/Tests/QuestFactionFixSmoke.csproj --configuration Release
+      - name: Package addon only
+        run: |
+          mkdir -p output/MultiplayerQuestFactionFix
+          cp -r QuestFactionFix/About QuestFactionFix/Assemblies QuestFactionFix/README.md output/MultiplayerQuestFactionFix/
+      - name: Package dryad addon
+        run: |
+          mkdir -p output/DryadHealingDefaults
+          cp -r DryadHealingFix/About DryadHealingFix/Assemblies DryadHealingFix/README.md output/DryadHealingDefaults/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Multiplayer-Quest-and-Dryad-Fixes
+          path: output/
+          if-no-files-found: error
