@@ -3,7 +3,7 @@
     <TargetFramework>net48</TargetFramework>
     <LangVersion>12</LangVersion>
     <AssemblyName>MultiplayerQuestFactionFix</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version>0.3.2</Version>
     <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>

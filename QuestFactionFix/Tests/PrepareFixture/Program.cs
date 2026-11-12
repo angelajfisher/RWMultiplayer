@@ -10,7 +10,7 @@ if (Path.GetFullPath(args[0]) == Path.GetFullPath(args[1]))
 using var resolver = new DefaultAssemblyResolver();
 resolver.AddSearchDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0])));
 using var module = ModuleDefinition.ReadModule(args[0], new ReaderParameters { AssemblyResolver = resolver });
-foreach (string name in new[] { "RimWorld.Planet.WorldObject", "RimWorld.Planet.MapParent", "RimWorld.Planet.Settlement", "RimWorld.MainTabWindow_Quests" })
+foreach (string name in new[] { "RimWorld.Planet.WorldObject", "RimWorld.Planet.MapParent", "RimWorld.Planet.Settlement", "RimWorld.MainTabWindow_Quests", "RimWorld.MessageTypeDefOf" })
 {
     var type = module.GetType(name) ?? throw new Exception("Missing fixture type: " + name);
     var initializer = type.Methods.FirstOrDefault(method => method.IsConstructor && method.IsStatic);

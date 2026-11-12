@@ -3,42 +3,53 @@ using Multiplayer.Client;
 using Multiplayer.Client.Factions;
 using RimWorld;
 using Verse;
-using MP = Multiplayer.Client.Multiplayer;
 
 namespace MultiplayerQuestFactionFix;
 
 public sealed class QuestFactionScope : IDisposable
 {
-    private readonly Map map;
-    private bool disposed;
+	private readonly Map map;
 
-    private QuestFactionScope(Map map) { this.map = map; }
+	private bool disposed;
 
-    public static QuestFactionScope Enter(Faction owner, Map map)
-    {
-        if (!QuestOwnership.Enabled || !QuestOwnership.IsColonyFaction(owner) || owner == Faction.OfPlayer)
-            return null;
-        // During early load a target map may exist before its MP components do.
-        // World context still supplies the correct faction/archive in that case.
-        if (map?.MpComp() == null) map = null;
-        int previousDepth = FactionContext.stack.Count;
-        var scope = new QuestFactionScope(map);
-        try
-        {
-            map.PushFaction(owner);
-            return scope;
-        }
-        catch
-        {
-            if (FactionContext.stack.Count > previousDepth) scope.Dispose();
-            throw;
-        }
-    }
+	private QuestFactionScope(Map map)
+	{
+		this.map = map;
+	}
 
-    public void Dispose()
-    {
-        if (disposed) return;
-        disposed = true;
-        map.PopFaction();
-    }
+	public static QuestFactionScope Enter(Faction owner, Map map)
+	{
+		if (!QuestOwnership.Enabled || !QuestOwnership.IsColonyFaction(owner) || owner == Faction.OfPlayer)
+		{
+			return null;
+		}
+		if (map?.MpComp() == null)
+		{
+			map = null;
+		}
+		int count = FactionContext.stack.Count;
+		QuestFactionScope questFactionScope = new QuestFactionScope(map);
+		try
+		{
+			map.PushFaction(owner);
+			return questFactionScope;
+		}
+		catch
+		{
+			if (FactionContext.stack.Count > count)
+			{
+				questFactionScope.Dispose();
+			}
+			throw;
+		}
+	}
+
+	public void Dispose()
+	{
+		if (!disposed)
+		{
+			disposed = true;
+			map.PopFaction();
+		}
+	}
 }

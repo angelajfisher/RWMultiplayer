@@ -16,7 +16,7 @@ using RimWorld.Planet;
 using Verse;
 using MP = Multiplayer.Client.Multiplayer;
 
-static class Program
+static partial class Program
 {
     static Faction observed;
     static Archive observedArchive;
@@ -34,6 +34,7 @@ static class Program
 
     public static int Main(string[] args)
     {
+        LoadMarriageAssemblies();
         var spectator = MakeFaction(21, "Spectator");
         var colony = MakeFaction(20, "Jelli's faction");
         var other = MakeFaction(22, "Other colony");
@@ -166,6 +167,7 @@ static class Program
         TestStructReturns();
         TestDryads();
         TestLetters(quest, globalQuest, colony, other, spectator);
+        TestMarriageOffers(quest, colony, other, spectator);
         if (args.Length > 0 && File.Exists(args[0])) TestSharedVisibility(args[0], quest, other, world);
         MP.session.client = null;
         Check(!QuestOwnership.Enabled, "singleplayer is unaffected");

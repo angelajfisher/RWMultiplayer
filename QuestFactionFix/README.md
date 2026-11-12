@@ -1,3 +1,56 @@
+# Version 0.3.2: diplomatic marriage offers
+
+Recognizes custom quest letters such as Romance on the Rim's DialogLetter,
+not only vanilla ChoiceLetter. Actionable offers remain in the shared active list
+on every peer; drawing, bundles, tooltips and automatic opening remain private
+to the owning colony. The original offer and ID are retained without cloning.
+
+An optional integration with MenuMultiplayerFix resolves diplomatic marriage
+commands from the saved offer in shared faction archives, ordered by letter ID,
+rather than trusting each client's active UI list. The original handler retains
+its partner checks, relations and quest signals. Consumed decisions are recorded
+in a saved GameComponent so duplicate commands cannot replay an archived offer.
+Invalid partner choices remain retryable; expired/historical offers are excluded.
+No extra mod/API DLLs or Multiplayer core replacement are bundled.
+
+Install the same version on both peers and fully restart. Rejoin the host's
+consistent save. This prevents new divergence; it does not rewind an offer that
+the host already completed or rejected, or repair a client that already diverged.
+
+Validation: 70 checks in an isolated process using the installed game Mono and
+actual RomanceOnTheRim/MenuMultiplayerFix DLLs. The real rejection handler is
+exercised for owner/other colony/spectator, with a missing active UI letter;
+quest ending is instrumented in the headless fixture. Also covers UI privacy,
+no extra offer IDs, duplicate rejection, invalid acceptance, timeout/history,
+existing quest routing and ally sharing. A live network test remains required.
+The early startup scan checks addon type and field loading with Workshop MP.
+
+Source was recovered from the installed v0.3.1 assembly because the earlier
+repository source directory had been removed. Existing v0.3.1 creep-joiner and
+startup compatibility behavior is retained. The regression source and build
+project are now in this repository again. Historical release notes follow.
+
+# Version 0.3.1: startup compatibility correction
+
+Removes a compiler-generated delegate field referencing an internal Multiplayer type. Prepatcher scans addon types before Multiplayer replaces its assembly, so that field prevented startup in 0.3.0. All 0.3.0 routing and pending-offer recovery behavior remains. Early type loading was checked with the workshop Multiplayer assembly, in addition to the custom-runtime regression suite. Live startup/network validation remains required.
+
+# Version 0.3.0: actionable offers and creep-joiner recovery
+
+Updates the existing Quest Faction Fix package; keep the same package ID and replace the old mod on BOTH peers. Restart both games and load/rejoin the host's consistent save.
+
+- Actionable choice letters stay in the active list on every peer. Local rendering filters the list, including tooltips and bundles, without changing the shared choice-generation input. Only the owning colony sees private offer buttons or automatic popups. Informational letter routing remains unchanged.
+- Creep-joiner quests can lack mapParent parts. Ownership now falls back specifically to the saved creep-outcome pawn's map, not the viewer or spectator faction.
+- Creep-joiner SetFaction quest actions targeting a player/spectator faction execute using the resolved colony owner, with the original field and faction scope restored in a finalizer.
+- On load (or the first connected tick), recover existing archived creep-joiner offers only when the quest remains pending, the matching pawn is alive/spawned/unrecruited/not imprisoned, the offer has not timed out, and its signals match the saved quest outcome. Reuses the exact letter and ID, correcting its archive to the owner. Does not spawn or recruit anything. Completed/rejected quests stay closed.
+
+For the existing Close-only dialog: after both players update, reload the host save, close any old dialog and open the restored offer from the letter stack. Recovery logs `Restored pending creep-joiner offer`. If the authoritative quest is already completed, this version intentionally does not rewind it.
+
+Validation: 56 checks pass against the game's Mono runtime and a headless game-assembly fixture, including owner/other-colony/spectator active-list consistency, recovery idempotence, stale-offer exclusions, and spectator target/context restoration. Harmony patches are installed in that fixture. Unity rendering internal-call warnings occur in the standalone harness; actual UI rendering and network clicks still require an in-game test.
+
+Build with `python3 build.py`. The existing publicized reference assembly is used for compilation; it is not packaged. Only the addon's DLL is distributed. A backup of v0.2.0 is in dist.
+
+Previous documentation follows (its original repository build commands are historical).
+
 # Multiplayer Quest Faction Fix
 
 A standalone RimWorld 1.6 addon for the Multiplayer mod. It does not replace
@@ -42,9 +95,7 @@ under spectator faction 21. Multiplayer resolves synchronized letter actions in
 the current faction's archive, explaining the inert buttons for the colony player.
 Vanilla `QuestPart_JoinPlayer` then recruits to the current `Faction.OfPlayer`.
 
-The addon prevents subsequent misrouting. It does not rewrite historical archives,
-reopen old offers or undo completed recruitment decisions. Already misfiled offers
-may still need a one-time dev-mode correction. No save-file schema is added.
+Version 0.3.0 also restores still-pending creep-joiner offers as described above. It does not undo completed recruitment decisions. No save-file schema is added.
 New offers/recruitment that require a context correction write a diagnostic line
 with the quest/signal and destination faction to `Player.log`.
 

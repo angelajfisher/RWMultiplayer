@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="PrepareFixture/**/*.cs" />
+    <Compile Remove="StartupScan/**/*.cs" />
     <ProjectReference Include="../Source/QuestFactionFix.csproj" />
     <ProjectReference Include="../../DryadHealingFix/Source/DryadHealingFix.csproj" />
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4566" />
