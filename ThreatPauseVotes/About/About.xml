@@ -1,0 +1,11 @@
+<ModMetaData>
+  <name>Threat Pause Votes</name><author>Angela Fisher</author>
+  <packageId>angelajfisher.threatpausevotes</packageId><modVersion>0.1.0</modVersion>
+  <supportedVersions><li>1.6</li></supportedVersions>
+  <description>When Multiplayer auto-pauses on a letter, existing player speed votes become Paused (0) instead of being cleared. Each voter must release their own pause. Preserves the configured pause threshold and map/world scope. All players must enable the same version.</description>
+  <modDependencies>
+    <li><packageId>brrainz.harmony</packageId><displayName>Harmony</displayName></li>
+    <li><packageId>rwmt.multiplayer</packageId><displayName>Multiplayer</displayName></li>
+  </modDependencies>
+  <loadAfter><li>rwmt.multiplayer</li><li>rwmt.multiplayercompatibility</li><li>angelajfisher.multiplayerquestfactionfix</li></loadAfter>
+</ModMetaData>

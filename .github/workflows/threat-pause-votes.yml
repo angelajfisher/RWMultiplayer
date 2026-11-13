@@ -1,0 +1,26 @@
+name: Build Threat Pause Votes
+on:
+  workflow_dispatch:
+  push:
+    paths: ['ThreatPauseVotes/**', '.github/workflows/threat-pause-votes.yml']
+  pull_request:
+    paths: ['ThreatPauseVotes/**', '.github/workflows/threat-pause-votes.yml']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.x
+      - run: dotnet build Source/Client/Multiplayer.csproj -c Release
+      - run: dotnet build ThreatPauseVotes/Tests/ThreatPauseVotesSmoke.csproj -c Release
+      - name: Package addon only
+        run: |
+          mkdir -p output/ThreatPauseVotes
+          cp -r ThreatPauseVotes/About ThreatPauseVotes/Assemblies ThreatPauseVotes/README.md output/ThreatPauseVotes/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Threat-Pause-Votes
+          path: output/
+          if-no-files-found: error
