@@ -1,0 +1,11 @@
+<ModMetaData>
+  <name>Colony Storytellers</name><author>Angela Fisher</author>
+  <packageId>angelajfisher.colonystorytellers</packageId><modVersion>0.1.0</modVersion>
+  <supportedVersions><li>1.6</li></supportedVersions>
+  <description>Allows each player colony to change its own storyteller, difficulty preset and custom difficulty during play through the normal Storyteller options. Keeps colony difficulty objects independent. Spectators cannot change storyteller settings. All players must install and restart.</description>
+  <modDependencies>
+    <li><packageId>brrainz.harmony</packageId><displayName>Harmony</displayName></li>
+    <li><packageId>rwmt.multiplayer</packageId><displayName>Multiplayer</displayName></li>
+  </modDependencies>
+  <loadAfter><li>rwmt.multiplayer</li><li>rwmt.multiplayercompatibility</li><li>customfix.raidanimalfix</li></loadAfter>
+</ModMetaData>

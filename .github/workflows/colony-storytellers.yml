@@ -1,0 +1,26 @@
+name: Build Colony Storytellers
+on:
+  workflow_dispatch:
+  push:
+    paths: ['ColonyStorytellers/**', '.github/workflows/colony-storytellers.yml']
+  pull_request:
+    paths: ['ColonyStorytellers/**', '.github/workflows/colony-storytellers.yml']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.x
+      - run: dotnet build Source/Client/Multiplayer.csproj -c Release
+      - run: dotnet build ColonyStorytellers/Tests/ColonyStorytellersSmoke.csproj -c Release
+      - name: Package addon only
+        run: |
+          mkdir -p output/ColonyStorytellers
+          cp -r ColonyStorytellers/About ColonyStorytellers/Assemblies ColonyStorytellers/README.md output/ColonyStorytellers/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Colony-Storytellers
+          path: output/
+          if-no-files-found: error

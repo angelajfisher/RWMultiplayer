@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <AssemblyName>ColonyStorytellers</AssemblyName>
+    <Version>0.1.0</Version>
+    <PublicizeAsReferenceAssemblies>false</PublicizeAsReferenceAssemblies>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4566" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.1" ExcludeAssets="runtime" />
+    <PackageReference Include="System.IO.Compression" Version="4.3.0" ExcludeAssets="runtime" />
+    <Reference Include="Multiplayer"><HintPath>../../AssembliesCustom/Multiplayer.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MultiplayerCommon"><HintPath>../../AssembliesCustom/MultiplayerCommon.dll</HintPath><Private>false</Private></Reference>
+    <Publicize Include="Assembly-CSharp" />
+    <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.6.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+  <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths">
+    <PropertyGroup><TargetFrameworkDirectory></TargetFrameworkDirectory></PropertyGroup>
+  </Target>
+  <Target Name="CopyModAssembly" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="../Assemblies" />
+  </Target>
+</Project>
