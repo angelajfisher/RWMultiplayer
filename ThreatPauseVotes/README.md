@@ -1,25 +1,36 @@
-# Threat Pause Votes 0.1.0
+# Threat Pause Votes 0.2.0
 
-RimWorld 1.6 Multiplayer addon. When a letter triggers the configured automatic
-pause, replaces the clearing of existing speed votes with Paused (0). With Lowest
-Wins time control, one player speeding up cannot release another player's pause.
-Each voter must select a speed when ready. Existing null/abstaining votes remain
-null; disconnected player records cannot acquire an unreleasable pause vote.
+When Multiplayer auto-pauses for a letter, only the receiving colony's connected
+clients request Paused (0) speed votes. Other players retain their existing speed
+votes. With Lowest Wins, the shared clock remains paused until recipients choose
+a speed, without requiring unaffected players to reselect theirs.
 
-Preserves Multiplayer's configured auto-pause threshold and map/world scope:
-async time affects the target tickable; synchronous time affects all tickables.
-It applies to all letters that meet that threshold, including non-threat letters
-if the host has selected a broader setting. Ordinary manual resets, disconnects,
-desync resets, and non-pausing letters are unchanged. No extra network commands,
-per-tick work, save schema or Multiplayer core replacement are needed.
+Uses ordinary synchronized TimeSpeedVote commands, rather than changing shared
+votes based on the local viewer. Requests take effect through normal server
+command scheduling. The original immediate automatic pause remains in place.
+An online recipient may acquire a paused vote even if their previous vote was
+null; offline records and spectators never acquire blocking votes.
 
-Install the folder containing About and Assemblies in local Mods and enable
-Threat Pause Votes after Multiplayer. All players need the same addon and must
-restart. Use Lowest Wins time control for per-player pause votes to govern speed.
+Uses Quest Faction Fix's recipient routing when installed, including accepted
+allies and public quests. Otherwise uses colony map targets or current event
+faction context. Untargeted world/public events can pause multiple receiving
+colonies. Keeps the configured pause threshold: broader automatic-pause settings
+also apply to qualifying non-threat letters.
 
-Validation: 14 checks pass using the installed game's Mono and the actual
-Multiplayer PauseOnLetter implementation, including both async and sync branches,
-Lowest Wins aggregation, a second player's retained pause, null/offline records,
-and unchanged ordinary disconnect/manual reset behavior. Live network play
-remains to be verified. The Harmony patch validates exactly two replaced calls
-and fails visibly if Multiplayer's implementation changes.
+Preserves Multiplayer's map/world scope: async affects the target tickable;
+synchronous time covers world and all map controls. Other players' votes remain
+unchanged in both modes. Disconnect, desync and ordinary manual resets retain
+normal behavior. Replays, catch-up simulation and desynced clients do not emit
+new pause requests. No per-tick work, save schema or core replacement is added.
+
+Replace the old ThreatPauseVotes folder, enable Threat Pause Votes after
+Multiplayer and Quest Faction Fix, and restart on all clients. Use Lowest Wins
+for per-player pause votes to govern time. A synchronized clock still pauses
+for everyone while any recipient holds a pause; independent colony clocks
+require Multiplayer's async-time setting.
+
+Validation: 30 checks pass using the game's Mono, actual auto-pause and scheduled
+vote handlers, plus the installed quest addon's recipient routing. Covers owner
+and nonowner clients, null votes, spectators/offline records, public/private
+quests, async/sync scope, disconnects, replay/catch-up, and exception-safe letter
+context cleanup. Live network validation remains required.
