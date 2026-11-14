@@ -185,19 +185,29 @@ namespace Multiplayer.Client
                 var info = Multiplayer.game.sync.knownClientOpinions.FirstOrDefault(b => b.startTick == packet.tick);
                 var response = info?.GetFormattedStackTracesForRange(packet.diffAt) ?? "Traces not available";
 
-                connection.Send(new ClientTracesPacket
+                connection.SendFragmented(new ClientTracesPacket
                     {
                         playerId = packet.playerId,
-                        rawTraces = GZipStream.CompressString(response),
-                        rawJittedMethods = GZipStream.CompressString(JittedMethods.GetJittedMethodsString())
-                    });
+                        rawTraces = PackTraceText(response),
+                        rawJittedMethods = PackTraceText(JittedMethods.GetJittedMethodsString())
+                    }.Serialize());
             }
             else if (packet.mode == ServerTracesPacket.Mode.Transfer)
             {
-                var traces = GZipStream.UncompressString(packet.rawTraces);
-                var jittedMethods = GZipStream.UncompressString(packet.rawJittedMethods);
+                var traces = TracePayload.Decompress(packet.rawTraces);
+                var jittedMethods = TracePayload.Decompress(packet.rawJittedMethods);
                 var hostInfo = new SaveableDesyncInfo.HostInfo(traces, jittedMethods);
                 Find.WindowStack.WindowOfType<DesyncedWindow>()?.HandleHostDesyncInfo(hostInfo);
+            }
+        }
+
+        private static byte[] PackTraceText(string text)
+        {
+            try { return TracePayload.Compress(text); }
+            catch (System.IO.InvalidDataException e)
+            {
+                Log.Warning($"Multiplayer: trace transfer omitted oversized field: {e.Message}");
+                return TracePayload.Compress($"Trace field unavailable: {e.Message}");
             }
         }
 

@@ -12,11 +12,14 @@ namespace Multiplayer.Client;
 public static class MpSettingsUI
 {
     private static string slotsBuffer;
-    private static string desyncRadiusBuffer;
     private static string jittedMethodsBuffer;
 
     private static Vector2 scrollPosition = Vector2.zero;
     private static SettingsPage currentPage = SettingsPage.General;
+
+    private static (string r, string g, string b)[] colorsBuffer = { };
+
+    const string UsernameField = "UsernameField";
 
     internal static void DoSettingsWindowContents(MpSettings settings, Rect inRect)
     {
@@ -111,8 +114,7 @@ public static class MpSettingsUI
         if (Prefs.DevMode)
         {
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
-            listing.TextFieldNumericLabeled("Desync radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f,
-                200f);
+            listing.Label("Desync reports include all retained stacks.");
             listing.TextFieldNumericLabeled("Jitted methods:  ", ref settings.jittedMethodsInDesync, ref jittedMethodsBuffer);
 
             if (MpVersion.IsDebug && FileAssoc.IsSupported())
@@ -146,8 +148,6 @@ public static class MpSettingsUI
             }
         }
     }
-
-    private static (string r, string g, string b)[] colorsBuffer = { };
 
     private static void DoColorContents(MpSettings settings, Rect inRect, Rect pageButtonPos)
     {
@@ -229,8 +229,6 @@ public static class MpSettingsUI
 
         return false;
     }
-
-    const string UsernameField = "UsernameField";
 
     private static void DoUsernameField(MpSettings settings, Listing_Standard listing)
     {

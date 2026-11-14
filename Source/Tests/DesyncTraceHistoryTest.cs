@@ -25,7 +25,7 @@ public class DesyncTraceHistoryTest
     public void EvictedMismatchStillChangesRollingDigest()
     {
         var left = Build(10000);
-        var right = Build(10000, differingIndex: 1);
+        var right = Build(10000, differingIndex: 500);
         var a = left.ToWire();
         var b = right.ToWire();
         Assert.That(a.Count, Is.EqualTo(DesyncTraceSummary.MaxWireHashes));
@@ -78,6 +78,30 @@ public class DesyncTraceHistoryTest
         Assert.That(DesyncTraceSummary.CaptureCount(left), Is.EqualTo(3));
         Assert.That(DesyncTraceSummary.FindFirstDifference(left, right, out bool found), Is.EqualTo(1));
         Assert.That(found, Is.True);
+    }
+
+    [Test]
+    public void BeginningSurvivesLongIntervalsAndFindsEarlyMismatch()
+    {
+        var a = Build(10000); var b = Build(10000, 1);
+        Assert.That(DesyncTraceSummary.FindFirstDifference(a.ToWire(), b.ToWire(), out bool found), Is.EqualTo(1));
+        Assert.That(found, Is.True);
+    }
+
+    [Test]
+    public void HeadAndTailReleaseExactlyOnceAndKeepGlobalIndices()
+    {
+        var released = new List<int>();
+        var history = new HeadTailBuffer<int>(2, 3, released.Add);
+        for (int i = 0; i < 10; i++) history.Add(i);
+        Assert.That(history.Entries().Select(e => e.Key), Is.EqualTo(new long[] { 0, 1, 7, 8, 9 }));
+        Assert.That(history.TryGet(1, out int first) && first == 1, Is.True);
+        Assert.That(history.TryGet(4, out _), Is.False);
+        Assert.That(released, Is.EqualTo(new[] { 2, 3, 4, 5, 6 }));
+        history.Clear(); history.Clear();
+        Assert.That(released.Order(), Is.EqualTo(Enumerable.Range(0, 10)));
+        history.Add(55);
+        Assert.That(history.TryGet(0, out int reset) && reset == 55, Is.True);
     }
 
     private static DesyncTraceSummary Build(int count, int differingIndex = -1)

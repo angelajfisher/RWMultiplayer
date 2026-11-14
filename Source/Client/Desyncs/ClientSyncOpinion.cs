@@ -26,8 +26,8 @@ namespace Multiplayer.Client
 
         // Serialized only after a desync to reduce bandwidth usage in regular gameplay (only the hashes are used) and
         // help with debugging in case something goes wrong.
-        public readonly BoundedRingBuffer<StackTraceLogItem> desyncStackTraces =
-            new(DesyncTraceSummary.Capacity, item => item.Dispose());
+        public readonly HeadTailBuffer<StackTraceLogItem> desyncStackTraces =
+            new(DesyncTraceSummary.HeadCapacity, DesyncTraceSummary.Capacity, item => item.Dispose());
         private readonly DesyncTraceSummary traceSummary = new();
         private List<int> cachedTraceHashes;
         public List<int> desyncStackTraceHashes
@@ -166,34 +166,40 @@ namespace Multiplayer.Client
         }
 
         public string GetFormattedStackTracesForRange(int diffAt)
-            => GetFormattedStackTracesForRange(diffAt, Multiplayer.settings.desyncTracesRadius);
+            => GetFormattedStackTracesForRange(diffAt, int.MaxValue);
 
         public string GetFormattedStackTracesForRange(int diffAt, int radius)
         {
             long total = DesyncTraceSummary.CaptureCount(desyncStackTraceHashes);
-            long first = total - desyncStackTraces.Count;
+            long evicted = total - desyncStackTraces.Count;
             var text = new StringBuilder()
-                .AppendLine($"Captured stacks: {total}; retained: {desyncStackTraces.Count}; evicted: {first}.")
+                .AppendLine($"Captured stacks: {total}; retained: {desyncStackTraces.Count}; evicted: {evicted}.")
                 .AppendLine($"Eligible events: {traceBudget.EventsSeen}; burst events skipped: {traceBudget.EventsSkipped}.")
                 .AppendLine($"Full capture through {DesyncTraceBudget.FullTracesPerTick} events per tick; only larger ticks use power-of-two samples.")
-                .AppendLine($"The rolling digest covers all captured stacks. Ring capacity: {DesyncTraceSummary.Capacity}. RNG-state checks remain enabled.");
-
+                .AppendLine($"Retains first {DesyncTraceSummary.HeadCapacity} and latest {DesyncTraceSummary.Capacity} captured stacks. RNG-state checks remain enabled.");
             if (diffAt == DesyncTraceSummary.EarlierHistoryDiffers)
-                text.AppendLine("Earlier captured history differs, but its exact stacks have already been evicted.");
-            else if (diffAt >= 0 && diffAt < first)
-                text.AppendLine($"Requested capture {diffAt} has been evicted; retained captures begin at {first}.");
+                text.AppendLine("A difference occurred in evicted history; its exact stack is unavailable.");
+            else if (diffAt >= 0 && desyncStackTraces.TryGet(diffAt, out var mismatch))
+                text.AppendLine($"First retained mismatch at capture {diffAt}:\n{mismatch}");
             else if (diffAt >= total && diffAt >= 0)
                 text.AppendLine($"Capture {diffAt} is missing on this peer.");
             else if (diffAt >= 0)
-                text.AppendLine($"First retained mismatch at capture {diffAt}:\n{desyncStackTraces[(int)(diffAt - first)]}");
-
-            if (desyncStackTraces.Count == 0) return text.ToString();
-            long center = diffAt >= 0 ? Math.Max(first, Math.Min(total - 1, diffAt)) : total - 1;
-            long start = Math.Max(first, center - radius);
-            long end = Math.Min(total, center + radius + 1);
+                text.AppendLine($"Requested capture {diffAt} is in the evicted gap.");
             text.AppendLine("\nRetained context (global capture indices; TraceEvent is the original eligible event number):");
-            for (long index = start; index < end; index++)
-                text.AppendLine($"{index} {desyncStackTraces[(int)(index - first)]}\n");
+            long previous = -1;
+            foreach (var entry in desyncStackTraces.Entries())
+            {
+                if (radius != int.MaxValue && diffAt >= 0 && Math.Abs(entry.Key - diffAt) > radius) continue;
+                if (entry.Key > previous + 1) text.AppendLine($"[captures {previous + 1}..{entry.Key - 1} not retained]");
+                string stack = entry.Value.ToString();
+                if (text.Length + stack.Length > TracePayload.MaxReportChars)
+                {
+                    text.AppendLine("[report text limit reached; remaining retained stacks omitted]");
+                    break;
+                }
+                text.AppendLine($"{entry.Key} {stack}\n");
+                previous = entry.Key;
+            }
             return text.ToString();
         }
 

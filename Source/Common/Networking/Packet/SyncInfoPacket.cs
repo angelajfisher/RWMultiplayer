@@ -58,7 +58,7 @@ public record struct SyncOpinion : IPacketBufferable
         buf.Bind(ref commandRandomStates, BinderOf.UInt());
         buf.Bind(ref worldRandomStates, BinderOf.UInt());
         buf.Bind(ref mapRandomStates, BinderOf.Identity<MapRandomState>());
-        // Fixed digest/count header plus a bounded tail of recent trace hashes.
+        // Fixed digest/count header plus bounded first and recent trace hashes.
         buf.Bind(ref traceHashes, BinderOf.Int(), maxLength: DesyncTraceSummary.MaxWireHashes);
 
         buf.Bind(ref simulating);

@@ -91,7 +91,7 @@ namespace Multiplayer.Client
             }
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
-            Log.Message($"Multiplayer: hybrid desync tracing (full through {DesyncTraceBudget.FullTracesPerTick} events/tick, burst sampling above; ring retains {DesyncTraceSummary.Capacity} stacks)");
+            Log.Message($"Multiplayer: hybrid desync tracing (full through {DesyncTraceBudget.FullTracesPerTick} events/tick, burst sampling above; retains first {DesyncTraceSummary.HeadCapacity} + latest {DesyncTraceSummary.Capacity} stacks)");
             Log.Message($"Arch: {RuntimeInformation.ProcessArchitecture}/OS: {RuntimeInformation.OSArchitecture}");
             Log.Message($"Player's username: {Multiplayer.username}");
 

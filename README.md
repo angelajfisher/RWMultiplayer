@@ -36,3 +36,12 @@ If you’re feeling generous these are people who have contributed greatly to th
 ## Notes
 Thanks to Pardeike for making [Harmony](https://github.com/pardeike/Harmony) and RevenantX for creating [LiteNetLib](https://github.com/RevenantX/LiteNetLib)
 
+
+## Custom desync diagnostics
+
+The custom build retains the first 256 and latest 2048 captured stacks per sync
+interval and exports all retained stacks. Capture frequency and burst sampling
+are unchanged. Diagnostic transfers use managed Zstandard with gzip fallback,
+explicit size limits and fragmentation on both host/server/joiner transfer legs.
+Protocol 57 requires all players to update together. Standard saved desync ZIPs
+still contain readable text. See [implementation and validation notes](Diagnostics/trace-transfer-upgrade.md).

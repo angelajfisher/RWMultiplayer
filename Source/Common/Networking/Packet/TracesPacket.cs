@@ -10,8 +10,8 @@ public record struct ClientTracesPacket : IPacket
     public void Bind(PacketBuffer buf)
     {
         buf.Bind(ref playerId);
-        buf.BindBytes(ref rawTraces);
-        buf.BindBytes(ref rawJittedMethods);
+        TracePacketLimits.Bind(buf, ref rawTraces);
+        TracePacketLimits.Bind(buf, ref rawJittedMethods);
     }
 }
 
@@ -55,8 +55,30 @@ public record struct ServerTracesPacket : IPacket
         }
         else
         {
-            buf.BindBytes(ref rawTraces);
-            buf.BindBytes(ref rawJittedMethods);
+            TracePacketLimits.Bind(buf, ref rawTraces);
+            TracePacketLimits.Bind(buf, ref rawJittedMethods);
+        }
+    }
+}
+
+// BindBytes historically ignores its maxLength argument. Enforce limits here,
+// before allocation on receive, without changing unrelated packet formats.
+public static class TracePacketLimits
+{
+    public static void Bind(PacketBuffer buffer, ref byte[] bytes)
+    {
+        if (buffer.isWriting)
+        {
+            if (bytes == null || bytes.Length > TracePayload.MaxCompressedBytes)
+                throw new WriterException("Trace field exceeds transfer limit.");
+            buffer.Writer.WriteInt32(bytes.Length); buffer.Writer.WriteRaw(bytes);
+        }
+        else
+        {
+            int length = buffer.Reader.ReadInt32();
+            if (length < 0 || length > TracePayload.MaxCompressedBytes || length > buffer.Reader.Left)
+                throw new ReaderException("Invalid trace field length.");
+            bytes = buffer.Reader.ReadRaw(length);
         }
     }
 }
