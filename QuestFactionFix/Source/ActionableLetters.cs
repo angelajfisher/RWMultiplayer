@@ -31,7 +31,11 @@ public static class ActionableLetters
 
     public static bool VisibleToViewer(Letter letter)
     {
-        if (!QuestOwnership.Enabled || !IsActionable(letter)) return true;
+        if (!QuestOwnership.Enabled) return true;
+        var quest = QuestFor(letter);
+        if (quest == null) return true;
+        // Ordinary quest-offer letters can open the same acceptance UI.
+        if (letter is StandardLetter || letter is NewQuestLetter) return QuestOwnership.ShouldShow(quest, Multiplayer.Client.Multiplayer.RealPlayerFaction);
         var owner = QuestOwnership.Owner(QuestFor(letter));
         return owner == null || owner == Multiplayer.Client.Multiplayer.RealPlayerFaction;
     }

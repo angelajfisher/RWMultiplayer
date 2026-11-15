@@ -20,7 +20,8 @@ static partial class Program
 {
     static Faction observed;
     static Archive observedArchive;
-    static int checks;
+    static int checks, acceptanceCalls;
+    static bool interfaceMode, commandMode;
     static bool throwDuringRecruitment;
 
     static T Empty<T>() => (T)FormatterServices.GetUninitializedObject(typeof(T));
@@ -111,12 +112,51 @@ static partial class Program
         var logs = new Harmony("quest-fix.smoke.logs");
         logs.Patch(AccessTools.Method(typeof(Log), nameof(Log.Message), new[] { typeof(string) }),
             prefix: new HarmonyMethod(typeof(Program).GetMethod(nameof(PrintLog), BindingFlags.Static | BindingFlags.NonPublic)));
+        var acceptanceFixture = new Harmony("quest-fix.smoke.acceptance");
+        acceptanceFixture.Patch(AccessTools.PropertyGetter(typeof(MP), nameof(MP.InInterface)), prefix: new HarmonyMethod(AccessTools.Method(typeof(Program), nameof(InterfaceMode))));
+        acceptanceFixture.Patch(AccessTools.PropertyGetter(typeof(MP), nameof(MP.ExecutingCmds)), prefix: new HarmonyMethod(AccessTools.Method(typeof(Program), nameof(CommandMode))));
         QuestFactionFixMod.ApplyPatches();
+        acceptanceFixture.Patch(AccessTools.Method(typeof(Quest), nameof(Quest.Accept)), prefix: new HarmonyMethod(AccessTools.Method(typeof(Program), nameof(AcceptanceProbe))) { priority = Priority.Last });
+        interfaceMode = true;
+        MP.game.myFactionLoading = other;
+        quest.Accept(null);
+        Check(acceptanceCalls == 0, "actual Accept blocks a foreign local UI action");
+        MP.game.myFactionLoading = colony;
+        quest.Accept(null);
+        Check(acceptanceCalls == 1, "actual Accept permits the owner's local UI action");
+        interfaceMode = false; commandMode = true;
+        using (QuestFactionScope.Enter(other, null)) quest.Accept(null);
+        Check(acceptanceCalls == 1, "synced foreign command is rejected despite local viewer owning the quest");
+        MP.game.myFactionLoading = other;
+        using (QuestFactionScope.Enter(colony, null)) quest.Accept(null);
+        Check(acceptanceCalls == 2, "synced owner command is allowed despite a different local viewer");
+        commandMode = false;
+        MP.game.myFactionLoading = colony;
+        acceptanceFixture.Unpatch(AccessTools.Method(typeof(Quest), nameof(Quest.Accept)), AccessTools.Method(typeof(Program), nameof(AcceptanceProbe)));
+        acceptanceFixture.UnpatchAll(acceptanceFixture.Id);
         var window = Empty<MainTabWindow_Quests>();
         var listQuest = AccessTools.Method(typeof(MainTabWindow_Quests), "ShouldListNow");
         Check((bool)listQuest.Invoke(window, new object[] { quest }), "patched quest list shows own available quest");
         MP.game.myFactionLoading = other;
         Check(!(bool)listQuest.Invoke(window, new object[] { quest }), "patched quest list hides another colony's quest");
+        var select = AccessTools.Method(typeof(MainTabWindow_Quests), "Select", new[] { typeof(Quest) });
+        select.Invoke(window, new object[] { quest });
+        Check(AccessTools.Field(typeof(MainTabWindow_Quests), "selected").GetValue(window) == null, "event-list selection cannot open another colony's quest");
+        new NewQuestLetter { quest = quest }.OpenLetter();
+        Check(true, "foreign quest offer opening is blocked before touching local tabs or removing its letter");
+        Set(window, "selected", quest);
+        bool preAcceptRan = false;
+        AccessTools.Method(typeof(MainTabWindow_Quests), "AcceptQuestByInterface").Invoke(window, new object[] { (Action)(() => preAcceptRan = true), false });
+        Check(!preAcceptRan, "foreign acceptance UI is blocked before reward-selection callbacks");
+        Set(window, "selected", null);
+        Check(!ActionableLetters.VisibleToViewer(new StandardLetter { quest = quest }), "ordinary foreign quest letters are hidden");
+        Check(!ActionableLetters.VisibleToViewer(new NewQuestLetter { quest = quest }), "foreign new-quest notifications are hidden");
+        var acceptType = typeof(QuestOwnership).Assembly.GetType("MultiplayerQuestFactionFix.QuestAcceptancePatch");
+        var canAccept = AccessTools.Method(acceptType, "CanAccept");
+        Check(!(bool)canAccept.Invoke(null, new object[] { quest, other }), "other colony cannot accept a private quest");
+        Check(!(bool)canAccept.Invoke(null, new object[] { quest, spectator }), "spectator cannot accept a private quest");
+        Check((bool)canAccept.Invoke(null, new object[] { quest, colony }), "own colony can accept its quest");
+        Check((bool)canAccept.Invoke(null, new object[] { globalQuest, other }), "multi-colony quests remain acceptable");
         MP.game.myFactionLoading = colony;
         Check((bool)listQuest.Invoke(window, new object[] { new Quest() }), "patched quest list keeps public quests");
         quest.hidden = true;
@@ -302,6 +342,10 @@ static partial class Program
         MP.game.myFactionLoading = invitee;
         invited.Add(invitee.loadID);
         Check((bool)listMethod.Invoke(window, new object[] { quest }), "actual sharing postfix keeps pending invitations visible");
+        Check(QuestOwnership.ShouldShow(quest, invitee), "invited ally passes direct quest selection visibility");
+        Check(ActionableLetters.VisibleToViewer(new NewQuestLetter { quest = quest }), "invited ally can view the quest notification");
+        var canAccept = AccessTools.Method(typeof(QuestOwnership).Assembly.GetType("MultiplayerQuestFactionFix.QuestAcceptancePatch"), "CanAccept");
+        Check(!(bool)canAccept.Invoke(null, new object[] { quest, invitee }), "invitation does not authorize starting the owner's quest");
         invited.Clear();
         participants.Add(invitee.loadID);
         Check(QuestLetterRouting.Recipients(new StandardLetter { quest = quest }).Contains(invitee), "accepted ally receives shared quest outcome notifications");
@@ -317,6 +361,9 @@ static partial class Program
         MP.game.myFactionLoading = previous;
     }
 
+    static bool InterfaceMode(ref bool __result) { __result = interfaceMode; return false; }
+    static bool CommandMode(ref bool __result) { __result = commandMode; return false; }
+    static bool AcceptanceProbe() { acceptanceCalls++; return false; }
     static bool MultiplayerForFixture(ref bool __result) { __result = true; return false; }
     static bool ViewerForFixture(ref Faction __result) { __result = MP.RealPlayerFaction; return false; }
 

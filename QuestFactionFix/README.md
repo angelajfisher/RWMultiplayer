@@ -1,3 +1,13 @@
+# Version 0.3.3: quest offer entry points and acceptance
+
+Guards quest acceptance buttons and pre-accept reward callbacks, MainTabWindow_Quests.Select and NewQuestLetter.OpenLetter, closing paths from event lists, archived notifications and stale UI that bypass ShouldListNow. Ordinary quest-associated letters now obey faction visibility too. Quest.Accept rejects foreign-colony/spectator UI actions and synchronized commands before Multiplayer switches to the quest map's faction. Synchronized checks use the command faction, never the local viewer. Automatic simulation acceptance outside UI/commands remains unchanged.
+
+Invited allies and accepted participants can still view shared quests through list, selection and new-quest notification paths. Invitations use the sharing mod's separate participation controls; they do not authorize starting the owner's unaccepted quest. Custom actionable join/marriage decisions remain owner-only. Public/multi-colony quests remain visible.
+
+Confirmed saved example: quest 360, Borcamgoto's EMI Field, targets Nagi's map parent 265 for both the EMI condition and item rewards. This release prevents future unauthorized acceptance; it does not undo an already accepted event or move existing rewards.
+
+Validation: 86 game-Mono checks with controlled engine queries, including actual patched selection/opening/acceptance methods, command-faction versus local-viewer decisions, existing marriage/recruitment handling, and the installed ally-sharing implementation. Live multiplayer validation remains required. All players must install this version and fully restart before rehosting/rejoining.
+
 # Version 0.3.2: diplomatic marriage offers
 
 Recognizes custom quest letters such as Romance on the Rim's DialogLetter,

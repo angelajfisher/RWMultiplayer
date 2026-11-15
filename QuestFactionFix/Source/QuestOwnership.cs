@@ -166,7 +166,7 @@ public static class QuestOwnership
 		Faction faction = Owner(quest);
 		if (faction != null)
 		{
-			return faction == viewer;
+			return faction == viewer || SharedQuestParticipation.CanView(quest, viewer);
 		}
 		return true;
 	}

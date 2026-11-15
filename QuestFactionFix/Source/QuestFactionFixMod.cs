@@ -11,11 +11,11 @@ public sealed class QuestFactionFixMod : Mod
 		: base(content)
 	{
 		ApplyPatches();
-		Log.Message("[MP Quest Faction Fix] v0.3.2 loaded: quest context, shared/global visibility and notification routing.");
+		Log.Message("[MP Quest Faction Fix] v0.3.3 loaded: quest context, shared/global visibility and notification routing.");
 	}
 
 	public static void ApplyPatches()
 	{
-		new Harmony("angelajfisher.multiplayerquestfactionfix").PatchAll(typeof(QuestFactionFixMod).Assembly);
+		new Harmony(HarmonyId).PatchAll(typeof(QuestFactionFixMod).Assembly);
 	}
 }
