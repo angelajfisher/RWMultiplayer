@@ -211,6 +211,7 @@ static partial class Program
         TestHistoryAndDiplomacy(colony, other, spectator);
         TestMarriageOffers(quest, colony, other, spectator);
         if (args.Length > 0 && File.Exists(args[0])) TestSharedVisibility(args[0], quest, other, world);
+        TestCleanupOwnership(colony, other, world, args.Length > 0 ? args[0] : "");
         MP.session.client = null;
         Check(!QuestOwnership.Enabled, "singleplayer is unaffected");
         Console.WriteLine($"Quest faction addon: {checks} checks passed");

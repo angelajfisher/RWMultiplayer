@@ -1,3 +1,31 @@
+# Version 0.3.5: preserve ownership across quest cleanup
+
+Records a known colony owner at quest addition and before End/CleanupQuestParts.
+The optional questFactionFixOwner integer is saved with each quest. Ownership
+queries first use live targets (including genuine multi-colony targets), then
+the saved owner, accepter, and parent. UI queries never record new ownership.
+Memory uses weak quest keys, so removed quests do not stay rooted by this addon.
+
+Cleanup and later part removal can erase all evidence of a private target.
+Previously those quests fell back to public notification routing. The recorded
+owner now keeps their failure/outcome letters private; accepted participants
+still receive shared outcomes and genuinely public quests remain public. This
+also preserves historical quest visibility after target parts disappear.
+
+The reported Paid Climate Adjuster (quest 357) has no parts or accepter in the
+current save; its description names Nagi's colony. This version cannot infer
+an authoritative owner for already-stripped legacy quests. It preserves owners
+for newly generated quests and existing quests that still have target evidence
+when their next cleanup/end runs. It does not rewrite descriptions or save files.
+
+Validation: 110 checks in game Mono, including actual addon cleanup hooks with
+a controlled destructive cleanup body, private letter delivery/archive routing,
+real Scribe_Values save/load of the owner integer, explicit multi-colony override,
+clearing stale single-owner data for multi-colony cleanup, accepted-ally outcome
+routing after cleanup, and previous event/history/quest regressions. Full Unity
+post-load and live multiplayer remain to be validated. All peers must install
+v0.3.5 and fully restart before rehosting/rejoining.
+
 # Version 0.3.4: private diplomatic incidents and letter history
 
 Leo - Events' Scandalous insult changes goodwill against Faction.OfPlayer but

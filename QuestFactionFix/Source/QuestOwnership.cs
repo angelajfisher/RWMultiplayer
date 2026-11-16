@@ -115,6 +115,8 @@ public static class QuestOwnership
 		{
 			return faction;
 		}
+        var remembered = QuestOwnerMemory.Owner(quest);
+        if (IsColonyFaction(remembered)) return remembered;
 		Faction faction2 = quest?.AccepterPawn?.Faction;
 		if (IsColonyFaction(faction2))
 		{
