@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Multiplayer.Client.Desyncs;
 using Verse;
+using Multiplayer.Common;
 
 namespace Multiplayer.Client
 {
@@ -39,7 +40,9 @@ namespace Multiplayer.Client
     public class StackTraceLogItemRaw : StackTraceLogItem
     {
         public const int MaxDepth = 32;
-        public long[] raw = new long[MaxDepth];
+        public long[] raw;
+        public StackTraceLogItemRaw() : this(true) { }
+        protected StackTraceLogItemRaw(bool allocate) { raw = allocate ? new long[MaxDepth] : null; }
         public int depth;
 
         public int ticksGame;
@@ -91,4 +94,27 @@ namespace Multiplayer.Client
             SimplePool<StackTraceLogItemRaw>.Return(this);
         }
     }
+    // Owns metadata, but shares immutable frames. The capture object is returned
+    // to its pool immediately instead of pinning a 32-frame array per event.
+    public sealed class RetainedStackTrace : StackTraceLogItemRaw
+    {
+        private TraceFrameStore store;
+        private readonly TraceFrameStore.Entry entry;
+        public RetainedStackTrace(StackTraceLogItemRaw source, TraceFrameStore store) : base(false)
+        {
+            this.store = store;
+            entry = store.Acquire(source.raw, source.depth);
+            raw = entry.Frames;
+            depth = source.depth; tick = source.tick; traceEvent = source.traceEvent; hash = source.hash;
+            ticksGame = source.ticksGame; rngState = source.rngState; thingDef = source.thingDef;
+            thingId = source.thingId; factionName = source.factionName; moreInfo = source.moreInfo;
+        }
+        public override void Dispose()
+        {
+            if (store == null) return;
+            store.Release(entry);
+            store = null;
+        }
+    }
+
 }

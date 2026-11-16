@@ -94,11 +94,11 @@ public class SaveableDesyncInfo(
         }
         else if (diffAt == DesyncTraceSummary.EarlierHistoryDiffers)
         {
-            traceMessage = "Note: the rolling digest differs, but the first differing stack is no longer retained.\n\n";
+            traceMessage = "Note: the rolling digest differs, but the first differing stack is outside the transmitted hash window; compare the expanded retained histories.\n\n";
         }
         else if (!diffAtFound)
         {
-            traceMessage = "Note: capture counts differ, but retained overlapping traces match. Earlier history may have been evicted.\n\n";
+            traceMessage = "Note: capture counts differ, but retained overlapping traces match. Check the expanded retained histories for earlier differences.\n\n";
         }
 
         traceMessage += local.GetFormattedStackTracesForRange(diffAt);

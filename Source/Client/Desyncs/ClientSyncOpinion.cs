@@ -27,7 +27,10 @@ namespace Multiplayer.Client
         // Serialized only after a desync to reduce bandwidth usage in regular gameplay (only the hashes are used) and
         // help with debugging in case something goes wrong.
         public readonly HeadTailBuffer<StackTraceLogItem> desyncStackTraces =
-            new(DesyncTraceSummary.HeadCapacity, DesyncTraceSummary.Capacity, item => item.Dispose());
+            new(RetainedHeadCapacity, RetainedTailCapacity, item => item.Dispose());
+        public const int RetainedHeadCapacity = 4096;
+        public const int RetainedTailCapacity = 32768;
+        private readonly TraceFrameStore frames = new();
         private readonly DesyncTraceSummary traceSummary = new();
         private List<int> cachedTraceHashes;
         public List<int> desyncStackTraceHashes
@@ -161,6 +164,12 @@ namespace Multiplayer.Client
         public void AddDesyncTrace(StackTraceLogItem item)
         {
             traceSummary.Add(item.hash);
+            if (item is StackTraceLogItemRaw raw)
+            {
+                var retained = new RetainedStackTrace(raw, frames);
+                raw.Dispose();
+                item = retained;
+            }
             desyncStackTraces.Add(item);
             cachedTraceHashes = null;
         }
@@ -176,9 +185,9 @@ namespace Multiplayer.Client
                 .AppendLine($"Captured stacks: {total}; retained: {desyncStackTraces.Count}; evicted: {evicted}.")
                 .AppendLine($"Eligible events: {traceBudget.EventsSeen}; burst events skipped: {traceBudget.EventsSkipped}.")
                 .AppendLine($"Full capture through {DesyncTraceBudget.FullTracesPerTick} events per tick; only larger ticks use power-of-two samples.")
-                .AppendLine($"Retains first {DesyncTraceSummary.HeadCapacity} and latest {DesyncTraceSummary.Capacity} captured stacks. RNG-state checks remain enabled.");
+                .AppendLine($"Retains first {RetainedHeadCapacity} and latest {RetainedTailCapacity} captured stacks. RNG-state checks remain enabled.");
             if (diffAt == DesyncTraceSummary.EarlierHistoryDiffers)
-                text.AppendLine("A difference occurred in evicted history; its exact stack is unavailable.");
+                text.AppendLine("A difference occurred outside the transmitted hash window. Compare the retained event histories below; full stacks may still be present locally.");
             else if (diffAt >= 0 && desyncStackTraces.TryGet(diffAt, out var mismatch))
                 text.AppendLine($"First retained mismatch at capture {diffAt}:\n{mismatch}");
             else if (diffAt >= total && diffAt >= 0)
@@ -186,12 +195,18 @@ namespace Multiplayer.Client
             else if (diffAt >= 0)
                 text.AppendLine($"Requested capture {diffAt} is in the evicted gap.");
             text.AppendLine("\nRetained context (global capture indices; TraceEvent is the original eligible event number):");
+            var stackIds = new Dictionary<object, int>();
             long previous = -1;
             foreach (var entry in desyncStackTraces.Entries())
             {
                 if (radius != int.MaxValue && diffAt >= 0 && Math.Abs(entry.Key - diffAt) > radius) continue;
                 if (entry.Key > previous + 1) text.AppendLine($"[captures {previous + 1}..{entry.Key - 1} not retained]");
-                string stack = entry.Value.ToString();
+                var item = entry.Value;
+                object identity = item is StackTraceLogItemRaw raw ? raw.raw : item;
+                bool fresh = !stackIds.TryGetValue(identity, out int stackId);
+                if (fresh) stackIds.Add(identity, stackId = stackIds.Count + 1);
+                string stack = $"Tick:{item.tick} TraceEvent:{item.traceEvent} Hash:{item.hash} '{item.AdditionalInfo}' Stack:{stackId}";
+                if (fresh) stack += $"\nStack definition {stackId}:\n{item.StackTraceString}";
                 if (text.Length + stack.Length > TracePayload.MaxReportChars)
                 {
                     text.AppendLine("[report text limit reached; remaining retained stacks omitted]");
