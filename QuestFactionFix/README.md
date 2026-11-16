@@ -1,3 +1,33 @@
+# Version 0.3.4: private diplomatic incidents and letter history
+
+Leo - Events' Scandalous insult changes goodwill against Faction.OfPlayer but
+sends a world notification with no location/quest. Our generic world-letter
+routing consequently broadcast it. The optional integration records the
+incident's colony context, routes its letters to that colony, and adds the
+colony name to the label. The original incident keeps its faction selection,
+random draw and goodwill change. Map-targeted invocations use the map owner;
+spectator-only invocations do not arbitrarily choose a player. Context restores
+on exceptions. Other world/public events retain their existing routing.
+
+Vanilla's common 200-entry archive limit lets short messages displace dismissed
+letters. The latest save had 200 Message entries in each colony archive, with
+only one ordinary letter in Dipper's archive. Culling now keeps separate
+allowances of 200 eligible letters and 200 eligible other entries. Original
+pinning and active-entry protections remain. This does not reconstruct already
+culled letters; it preserves future letter history. This policy applies to all
+archives while multifaction Multiplayer is active, independently of UI filters.
+
+Validation: 100 game-Mono checks, including a 600-message flood, bounded letter
+history, pinned/active protection, the installed Leo worker's Harmony entry point
+with controlled incident body/delivery, world-tick routing, affected/other viewer,
+spectator suppression, exception cleanup, public event delivery, and previous
+quest/ally-sharing/marriage regressions. The fixture controls goodwill/incident
+body execution; a live multiplayer session remains to be checked. Startup type
+and field scan also passes with Workshop Multiplayer loaded first.
+
+All players must install v0.3.4 and restart. No core Multiplayer replacement,
+Workshop copies or save edits are included in this addon update.
+
 # Version 0.3.3: quest offer entry points and acceptance
 
 Guards quest acceptance buttons and pre-accept reward callbacks, MainTabWindow_Quests.Select and NewQuestLetter.OpenLetter, closing paths from event lists, archived notifications and stale UI that bypass ShouldListNow. Ordinary quest-associated letters now obey faction visibility too. Quest.Accept rejects foreign-colony/spectator UI actions and synchronized commands before Multiplayer switches to the quest map's faction. Synchronized checks use the command faction, never the local viewer. Automatic simulation acceptance outside UI/commands remains unchanged.

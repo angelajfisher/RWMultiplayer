@@ -35,6 +35,7 @@ static partial class Program
 
     public static int Main(string[] args)
     {
+        Assembly.LoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Leo.Events.dll"));
         LoadMarriageAssemblies();
         var spectator = MakeFaction(21, "Spectator");
         var colony = MakeFaction(20, "Jelli's faction");
@@ -207,6 +208,7 @@ static partial class Program
         TestStructReturns();
         TestDryads();
         TestLetters(quest, globalQuest, colony, other, spectator);
+        TestHistoryAndDiplomacy(colony, other, spectator);
         TestMarriageOffers(quest, colony, other, spectator);
         if (args.Length > 0 && File.Exists(args[0])) TestSharedVisibility(args[0], quest, other, world);
         MP.session.client = null;

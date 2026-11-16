@@ -29,6 +29,11 @@ internal static class QuestLetterRoutingPatch
 	{
 		if (QuestOwnership.Enabled && let != null && delayTicks <= 0 && let.CanShowInLetterStack)
 		{
+            if (DiplomaticIncidentDelivery.Recipient is Faction affected && let is StandardLetter)
+            {
+                string suffix = " (" + affected.Name + ")";
+                if (!let.Label.ToString().EndsWith(suffix, StringComparison.Ordinal)) let.Label = let.Label + suffix;
+            }
 			List<Faction> list = QuestLetterRouting.Recipients(let);
 			if (list != null && list.Count != 0 && (let is StandardLetter || ActionableLetters.IsActionable(let)))
 			{

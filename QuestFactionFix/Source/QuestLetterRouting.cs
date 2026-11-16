@@ -33,6 +33,8 @@ public static class QuestLetterRouting
 			}
 			return list;
 		}
+		if (DiplomaticIncidentDelivery.Recipient is Faction diplomaticRecipient)
+            return new List<Faction> { diplomaticRecipient };
 		if (!(letter is StandardLetter))
 		{
 			return null;
