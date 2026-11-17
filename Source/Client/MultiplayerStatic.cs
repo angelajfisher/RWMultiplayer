@@ -56,7 +56,7 @@ namespace Multiplayer.Client
                     MacStackTracing.Initialize(Path.Combine(Multiplayer.modContentPack.RootDir,
                         "Libraries", "macOS", "libmultiplayer_stacktrace.dylib"),
                         Path.Combine(Application.dataPath, "Frameworks", "libmonobdwgc-2.0.dylib"));
-                    Log.Message("Multiplayer: using Mono managed macOS desync stack tracing");
+                    Log.Message($"Multiplayer: using Mono managed macOS desync stack tracing ({RuntimeInformation.ProcessArchitecture})");
                 }
                 catch (Exception e)
                 {

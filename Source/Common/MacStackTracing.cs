@@ -25,8 +25,8 @@ public static class MacStackTracing
         Selected = true;
         capture = null;
         stackWalk = IntPtr.Zero;
-        if (RuntimeInformation.ProcessArchitecture != Architecture.X64)
-            throw new PlatformNotSupportedException("macOS tracing currently requires an x86-64 process (Rosetta on Apple Silicon)");
+        if (RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
+            throw new PlatformNotSupportedException("macOS tracing requires a 64-bit x86 or ARM process");
         library = dlopen(path, 2); // RTLD_NOW
         if (library == IntPtr.Zero)
             throw new DllNotFoundException(Marshal.PtrToStringAnsi(dlerror()));

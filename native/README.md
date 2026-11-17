@@ -7,13 +7,13 @@ public `mono_stack_walk_no_il` API through a small native Rust callback bridge.
 The callback writes method handles directly into a bounded reusable buffer;
 it never calls managed code during the native stack walk and has no dependencies.
 
-macOS x86-64 processes, including RimWorld running under Rosetta, load
+macOS ARM64 and x86-64 processes, including RimWorld running under Rosetta, load
 `Libraries/macOS/libmultiplayer_stacktrace.dylib` from the active mod directory.
 Startup checks that the walker can see a known Mono managed method before enabling
 tracing. Missing libraries or a failed check disable tracing, without falling back
-to the private Mono LMF offsets. Native ARM64 tracing remains disabled pending
-validation of the replacement on that architecture; the universal library contains
-both architectures to allow further investigation.
+to the private Mono LMF offsets. Native ARM64 uses the same validated Mono walker
+and universal library as x86-64; a known-managed-caller check gates both paths.
+See ARM64.md for validation results and remaining live-session checks.
 
 The C# integration discards native and capture helper frames, then applies the
 existing method-name normalization, Harmony original-method lookup and hashing to
@@ -42,28 +42,17 @@ event tick selects 4107 stack captures. There is no interval-wide capture cutoff
 so ordinary ticks continue to be fully captured even after earlier huge bursts.
 The bound on per-tick capture work is 4160 stacks.
 
-Each sync opinion retains only its latest 2048 full stacks in a fixed-size ring.
-Overwritten records immediately return to the pool, and clearing an opinion releases
-each remaining record once. The existing 30-opinion backlog remains bounded.
+Each sync opinion retains its first 4,096 and latest 32,768 captured events,
+sharing repeated frame arrays and reporting stack definitions once. Eviction
+releases definitions when their last event is gone. The 30-opinion backlog is
+bounded. See TraceRetention.md for memory, report-size and retention details.
 
-A 64-bit rolling digest and capture count summarize the entire captured sequence,
-including records already evicted. Up to 2048 recent hashes follow that five-integer
-header: the wire summary is at most 2053 integers (about 8 KiB), regardless of how
-many ordinary events were fully captured. The digest still detects older
-disagreement even when its exact stack is gone. Retained mismatches use global
-capture indices, and peers align their ring tails by capture count.
-
-Reports identify sampling, skipped events, evicted history and retained index
-ranges. `TraceEvent` identifies the original eligible event within the interval.
-Reports explicitly say when an exact older stack is unavailable; the digest cannot
-reconstruct it. Random-state collection and comparisons remain unchanged. Full
-tracing below the burst threshold costs more CPU than the previous aggressive
-sampler, and actual colony TPS must still be measured.
-
-Protocol 56 rejects older peers because the hybrid policy and rolling wire summary
-differ from protocol 55's sampled prefix. Every player needs this build, including
-Windows/Linux players. The colony save format is unchanged. Historical reports
-with bare trace-hash lists remain readable.
+Routine hash summaries keep the first 256 and latest 2,048 hashes plus a rolling
+digest/count covering every capture (six-integer header). A difference outside
+that smaller wire window may still be present in the expanded local reports.
+Normal hash traffic, RNG-state checks, and protocol 57 are unchanged by ARM support.
+All players should use the same build. Stack hashes matched for the controlled
+ARM64/x86-64 capture test; in-game architecture/platform parity still needs testing.
 
 ## Build
 
@@ -102,13 +91,13 @@ DYLD_LIBRARY_PATH="$rimworld_contents/Frameworks" /tmp/mono-host \
   "$PWD/Libraries/macOS/libmultiplayer_stacktrace.dylib"
 ```
 
-On Apple Silicon this command requires Rosetta. The test must find `Program.Capture`
+The x86-64 host requires Rosetta on Apple Silicon. The test must find `Program.Capture`
 in the captured managed frames, render those frames, and pass cold/cached hash
 agreement, Harmony original-method normalization, skipped helper frames, generic
 callers, deep stacks and 10,000 repeated captures. Compile the host with `-arch arm64`
-instead to test the unsupported-architecture fallback.
+instead to run the same supported tracing tests natively.
 
-Finally, run RimWorld through Rosetta, enable **Log desync traces** when hosting,
+Finally, run RimWorld natively or through Rosetta, enable **Log desync traces** when hosting,
 and confirm startup logs `using Mono managed macOS desync stack tracing`. Host/join with
 the same patched mod, run a colony for several minutes and reconnect. Check that
 there are no `TraceImpl` exceptions and that desync logs contain managed callers.

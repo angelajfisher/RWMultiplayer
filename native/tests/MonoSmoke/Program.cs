@@ -12,11 +12,12 @@ static class Program
 {
     public static int Main(string[] args)
     {
+        Console.WriteLine("PROCESS ARCHITECTURE: " + RuntimeInformation.ProcessArchitecture);
         Native.EarlyInit(Native.NativeOS.OSX);
         Native.InitLmfPtr(Native.NativeOS.OSX);
         Native.mini_parse_debug_option("disable_omit_fp");
         if (Native.LmfPtr != 0) throw new Exception("macOS must not use the legacy LMF offset");
-        if (RuntimeInformation.ProcessArchitecture != Architecture.X64)
+        if (RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
         {
             try
             {
@@ -84,19 +85,19 @@ static class Program
     static void TestClientRing()
     {
         var opinion = new ClientSyncOpinion(0);
-        for (int i = 0; i < 3000; i++)
+        for (int i = 0; i < 40000; i++)
             opinion.AddDesyncTrace(new FakeTrace { hash = i, traceEvent = i + 1 });
-        if (opinion.desyncStackTraces.Count != DesyncTraceSummary.Capacity || FakeTrace.Disposed != 952)
+        if (opinion.desyncStackTraces.Count != ClientSyncOpinion.RetainedHeadCapacity + ClientSyncOpinion.RetainedTailCapacity || FakeTrace.Disposed != 3136)
             throw new Exception("Client trace ring did not evict/release correctly");
-        if (!opinion.GetFormattedStackTracesForRange(1, 2).Contains("has been evicted") ||
-            !opinion.GetFormattedStackTracesForRange(2999, 2).Contains("TraceEvent:3000"))
+        if (!opinion.GetFormattedStackTracesForRange(5000, 2).Contains("evicted gap") ||
+            !opinion.GetFormattedStackTracesForRange(39999, 2).Contains("TraceEvent:40000"))
             throw new Exception("Client report lost ring indices or eviction notices");
         var remote = ClientSyncOpinion.FromNet(opinion.ToNet());
         if (opinion.CheckForDesync(remote) != null)
             throw new Exception("Client summary failed network roundtrip comparison");
         opinion.Clear();
         opinion.Clear();
-        if (FakeTrace.Disposed != 3000 || opinion.desyncStackTraceHashes.Count != 0)
+        if (FakeTrace.Disposed != 40000 || opinion.desyncStackTraceHashes.Count != 0)
             throw new Exception("Client ring released an item twice or retained cleared hashes");
         Console.WriteLine("PASS: client ring, report indices, network summary and disposal");
     }
