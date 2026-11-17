@@ -91,7 +91,7 @@ namespace Multiplayer.Client
             }
 
             Log.Message($"Multiplayer version {MpVersion.Version}");
-            Log.Message($"Multiplayer: hybrid desync tracing (full through {DesyncTraceBudget.FullTracesPerTick} events/tick, burst sampling above; retains first {DesyncTraceSummary.HeadCapacity} + latest {DesyncTraceSummary.Capacity} stacks)");
+            Log.Message($"Multiplayer: hybrid desync tracing (full through {DesyncTraceBudget.FullTracesPerTick} events/tick, burst sampling above; retains first {ClientSyncOpinion.RetainedHeadCapacity} + latest {ClientSyncOpinion.RetainedTailCapacity} events)");
             Log.Message($"Arch: {RuntimeInformation.ProcessArchitecture}/OS: {RuntimeInformation.OSArchitecture}");
             Log.Message($"Player's username: {Multiplayer.username}");
 
@@ -114,6 +114,8 @@ namespace Multiplayer.Client
 
             using (DeepProfilerWrapper.Section("Multiplayer patches"))
                 DoPatches();
+
+            RenderProfiler.Install();
 
             Log.messageQueue.maxMessages = 1000;
 
