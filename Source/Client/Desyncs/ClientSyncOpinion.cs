@@ -166,7 +166,7 @@ namespace Multiplayer.Client
             traceSummary.Add(item.hash);
             if (item is StackTraceLogItemRaw raw)
             {
-                var retained = new RetainedStackTrace(raw, frames);
+                var retained = RetainedStackTrace.Acquire(raw, frames);
                 raw.Dispose();
                 item = retained;
             }

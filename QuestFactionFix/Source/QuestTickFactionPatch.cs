@@ -10,7 +10,7 @@ internal static class QuestTickFactionPatch
 	{
 		if (QuestOwnership.Enabled)
 		{
-			__state = QuestFactionScope.Enter(QuestOwnership.Owner(__instance), QuestOwnership.TargetMap(__instance));
+			__state = QuestOwnership.Enter(__instance);
 		}
 	}
 

@@ -99,21 +99,32 @@ namespace Multiplayer.Client
     public sealed class RetainedStackTrace : StackTraceLogItemRaw
     {
         private TraceFrameStore store;
-        private readonly TraceFrameStore.Entry entry;
-        public RetainedStackTrace(StackTraceLogItemRaw source, TraceFrameStore store) : base(false)
+        private TraceFrameStore.Entry entry;
+        // Captures/opinions run on the simulation thread, like Verse.SimplePool.
+        // Bound the reusable records to one full history, not the 30-opinion backlog.
+        private const int PoolLimit = ClientSyncOpinion.RetainedHeadCapacity + ClientSyncOpinion.RetainedTailCapacity + 1;
+        private static readonly Stack<RetainedStackTrace> pool = new();
+        public static int PooledCount => pool.Count;
+        private RetainedStackTrace() : base(false) { }
+        public static RetainedStackTrace Acquire(StackTraceLogItemRaw source, TraceFrameStore store)
         {
-            this.store = store;
-            entry = store.Acquire(source.raw, source.depth);
-            raw = entry.Frames;
-            depth = source.depth; tick = source.tick; traceEvent = source.traceEvent; hash = source.hash;
-            ticksGame = source.ticksGame; rngState = source.rngState; thingDef = source.thingDef;
-            thingId = source.thingId; factionName = source.factionName; moreInfo = source.moreInfo;
+            var entry = store.Acquire(source.raw, source.depth);
+            var retained = pool.Count > 0 ? pool.Pop() : new RetainedStackTrace();
+            retained.store = store; retained.entry = entry; retained.raw = entry.Frames;
+            retained.depth = source.depth; retained.tick = source.tick; retained.traceEvent = source.traceEvent; retained.hash = source.hash;
+            retained.ticksGame = source.ticksGame; retained.rngState = source.rngState; retained.thingDef = source.thingDef;
+            retained.thingId = source.thingId; retained.factionName = source.factionName; retained.moreInfo = source.moreInfo;
+            return retained;
         }
         public override void Dispose()
         {
             if (store == null) return;
             store.Release(entry);
-            store = null;
+            store = null; entry = null; raw = null;
+            depth = tick = ticksGame = hash = thingId = 0;
+            traceEvent = 0; rngState = 0;
+            thingDef = null; factionName = null; moreInfo = null;
+            if (pool.Count < PoolLimit) pool.Push(this);
         }
     }
 

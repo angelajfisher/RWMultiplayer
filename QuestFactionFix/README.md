@@ -1,3 +1,24 @@
+# Version 0.3.6: cheaper quest context lookups
+
+Quest ticks, signals and endings resolve owner and target map together rather
+than independently scanning twice. Map-parent field readers are compiled and
+cached by quest-part type; per-thread scratch lists/sets are reused and cleared
+on exceptions and early enumeration disposal. Pools retain at most eight scratch
+buffers per thread. Recruitment/explicit-field/look-target/creep-joiner precedence
+is preserved, including private inherited map fields.
+
+Resolved owners/targets are not cached across operations. Direct map-field edits,
+part-list replacement, pawn movement, cleanup and faction transfers therefore
+remain visible immediately. Reentrant target getters borrow independent buffers.
+Saved historical ownership, public/shared quests and existing fixes remain intact.
+
+Validation: 118 game-Mono checks on native ARM64 and Rosetta, including same-tick
+retargeting, inherited fields, multi-colony classification, target ordering,
+reentrant queries and exception cleanup. Synthetic mixed-part context lookup
+runs were approximately one-third faster; this is not an in-game TPS measurement.
+See native/TpsOptimizations.md in the source repository for benchmark limitations.
+All players must install v0.3.6 and restart.
+
 # Version 0.3.5: preserve ownership across quest cleanup
 
 Records a known colony owner at quest addition and before End/CleanupQuestParts.
