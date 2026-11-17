@@ -42,6 +42,46 @@ public static class RenderProfiler
     private static int frames, lastFrame = -1, samples;
     private static int mainThread;
     private static string metadata;
+    private sealed class MapCapture
+    {
+        internal AsyncTimeComp component;
+        internal int firstTick;
+        internal string speed;
+        internal readonly TickTimingCounter timing = new();
+    }
+    private readonly struct MapToken(MapCapture capture, int tick, long timestamp, int epoch)
+    {
+        internal readonly MapCapture Capture = capture;
+        internal readonly int Tick = tick, Epoch = epoch;
+        internal readonly long Timestamp = timestamp;
+    }
+    private static readonly Dictionary<int, MapCapture> mapCaptures = new();
+    private static int captureEpoch, worldStart, timerStart;
+    private static MultiplayerGame captureGame;
+    private static MapCapture MapCaptureFor(AsyncTimeComp component)
+    {
+        if (component?.map == null) return null;
+        int id = component.map.uniqueID;
+        if (!mapCaptures.TryGetValue(id, out var capture) && mapCaptures.Count < 64)
+        {
+            capture = new MapCapture { component = component, firstTick = component.mapTicks, speed = component.DesiredTimeSpeed.ToString() };
+            mapCaptures.Add(id, capture);
+        }
+        return capture;
+    }
+    private static void BeginMap(AsyncTimeComp __instance, out MapToken __state)
+    {
+        __state = default;
+        if (!Active || System.Threading.Thread.CurrentThread.ManagedThreadId != mainThread) return;
+        var capture = MapCaptureFor(__instance);
+        if (capture != null) __state = new MapToken(capture, __instance.mapTicks, Stopwatch.GetTimestamp(), captureEpoch);
+    }
+    private static Exception EndMap(Exception __exception, AsyncTimeComp __instance, MapToken __state)
+    {
+        if (Active && __state.Capture != null && __state.Epoch == captureEpoch)
+            __state.Capture.timing.Add(__state.Tick, __instance.mapTicks, Stopwatch.GetTimestamp() - __state.Timestamp, __exception != null);
+        return __exception;
+    }
     public static bool Active => session?.Active == true;
 
     public static void Install()
@@ -105,6 +145,9 @@ public static class RenderProfiler
                 indices.Remove(target); coverage.Add("Not instrumented: " + target + " (" + e.GetType().Name + ")");
             }
         }
+        harmony.Patch(AccessTools.Method(typeof(AsyncTimeComp), nameof(AsyncTimeComp.Tick)),
+            prefix: new HarmonyMethod(typeof(RenderProfiler), nameof(BeginMap)) { priority = Priority.First },
+            finalizer: new HarmonyMethod(typeof(RenderProfiler), nameof(EndMap)) { priority = Priority.Last });
         session = new RenderTimingSession(Math.Max(1, names.Count));
         var gui = AccessTools.Method(typeof(UIRoot_Play), "UIRootOnGUI");
         if (gui != null) harmony.Patch(gui, prefix: new HarmonyMethod(typeof(RenderProfiler), nameof(OnGui)));
@@ -126,7 +169,14 @@ public static class RenderProfiler
     {
         if (session == null || Active) return;
         frames = samples = 0; lastFrame = -1;
+        mapCaptures.Clear(); captureEpoch++;
+        captureGame = Multiplayer.game;
+        worldStart = captureGame?.asyncWorldTimeComp?.worldTicks ?? 0;
+        timerStart = TickPatch.Timer;
+        if (captureGame?.asyncTimeComps != null)
+            foreach (var component in captureGame.asyncTimeComps) MapCaptureFor(component);
         metadata = $"Architecture: {RuntimeInformation.ProcessArchitecture}\nResolution: {Screen.width}x{Screen.height}, UI scale: {Prefs.UIScale}\nGPU: {SystemInfo.graphicsDeviceName}\nVSync: {QualitySettings.vSyncCount}, target FPS: {Application.targetFrameRate}\nMap: {Find.CurrentMap?.uniqueID}, pawns on map: {Find.CurrentMap?.mapPawns.AllPawnsSpawned.Count}\nDesync tracing mode: {Multiplayer.settings?.desyncTracingMode}";
+        metadata += $"\nServer tracing enabled: {captureGame?.gameComp?.logDesyncTraces == true}\nReplay: {Multiplayer.IsReplay}; catch-up at start: {TickPatch.Simulating}";
         started = Stopwatch.GetTimestamp(); session.Start();
         Log.Message("[Render profiler] Recording 15 seconds; keep the same camera and speed. Ctrl+Shift+F8 stops early.");
     }
@@ -167,6 +217,20 @@ public static class RenderProfiler
                 report.AppendLine($"Frame time ms: mean={sorted.Average():F2}, median={sorted[samples / 2]:F2}, p95={sorted[(int)((samples - 1) * .95)]:F2}");
             }
             double ms = 1000d / Stopwatch.Frequency;
+            bool sameGame = ReferenceEquals(captureGame, Multiplayer.game);
+            report.AppendLine($"\nSame game at end: {sameGame}; catch-up at end: {TickPatch.Simulating}");
+            report.AppendLine($"Network timer delta: {(long)TickPatch.Timer - timerStart}; world tick delta: {(long)(captureGame?.asyncWorldTimeComp?.worldTicks ?? worldStart) - worldStart}");
+            report.AppendLine("Map tick measurements (all maps; elapsed includes waits inside that map tick; no division of total simulation cost by just the viewed map):");
+            report.AppendLine("Map\tTick delta\tAchieved TPS\tTimed tick advances\tMap tick ms\tms/timed tick\tCalls\tNo advance\tResets\tExceptions\tSpeed start -> end");
+            foreach (var item in mapCaptures.OrderBy(p => p.Key))
+            {
+                var value = item.Value; var timing = value.timing;
+                long delta = (long)value.component.mapTicks - value.firstTick;
+                double? rate = sameGame ? TickTimingCounter.Rate(value.firstTick, value.component.mapTicks, seconds) : null;
+                string perTick = timing.TimePerTick.HasValue && sameGame ? (timing.TimePerTick.Value * ms).ToString("F4") : "N/A";
+                report.AppendLine($"{item.Key}\t{delta}\t{(rate.HasValue ? rate.Value.ToString("F2") : "N/A")}\t{timing.AdvancedTicks}\t{timing.Elapsed * ms:F3}\t{perTick}\t{timing.Calls}\t{timing.NoAdvance}\t{timing.Resets}\t{timing.Exceptions}\t{value.speed} -> {value.component.DesiredTimeSpeed}");
+            }
+            report.AppendLine();
             var stats = session.Snapshot();
             report.AppendLine("Calls\tExclusive ms\tInclusive ms\tExclusive ms/frame\tMax call ms\tAssembly :: Method");
             foreach (var entry in stats.Select((stat, i) => (stat, i)).OrderByDescending(x => x.stat.Exclusive))
@@ -183,5 +247,6 @@ public static class RenderProfiler
             return path;
         }
         catch (Exception e) { Log.Warning("[Render profiler] Could not write report: " + e.Message); return null; }
+        finally { mapCaptures.Clear(); captureGame = null; }
     }
 }

@@ -45,9 +45,30 @@ static class Program
         Check(threadFailure == null && session.Snapshot()[0].Calls == 2, "worker-thread drawing is excluded safely from main-thread capture");
         session.Stop(); Outer(2, false);
         Check(session.Snapshot()[0].Calls == 2, "stopping recording prevents further measurements");
+        var component = (AsyncTimeComp)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(AsyncTimeComp));
+        var map = (Verse.Map)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Verse.Map));
+        AccessTools.Field(typeof(Verse.Map), "uniqueID").SetValue(map, 44); component.map = map; component.mapTicks = 100;
+        var captureType = type.GetNestedType("MapCapture", BindingFlags.NonPublic);
+        var capture = Activator.CreateInstance(captureType, true);
+        AccessTools.Field(captureType, "component").SetValue(capture, component);
+        var captures = (System.Collections.IDictionary)AccessTools.Field(type, "mapCaptures").GetValue(null); captures.Add(44, capture);
+        var mapTick = AccessTools.Method(typeof(AsyncTimeComp), nameof(AsyncTimeComp.Tick));
+        h.Patch(mapTick, prefix: new HarmonyMethod(type, "BeginMap") { priority = Priority.First }, finalizer: new HarmonyMethod(type, "EndMap"));
+        h.Patch(mapTick, prefix: new HarmonyMethod(typeof(Program), nameof(MapBody)) { priority = Priority.Last });
+        session.Start(); component.Tick();
+        var counter = (TickTimingCounter)AccessTools.Field(captureType, "timing").GetValue(capture);
+        Check(counter.Calls == 1 && counter.AdvancedTicks == 1 && component.mapTicks == 101, "actual map tick hook measures advances without changing the controlled body");
+        failMap = true; caught = false;
+        try { component.Tick(); } catch (InvalidOperationException) { caught = true; }
+        Check(caught && counter.Exceptions == 1 && counter.AdvancedTicks == 2, "map timing preserves exceptions and records partial advancement explicitly");
+        session.Stop(); failMap = false; component.Tick();
+        Check(counter.Calls == 2, "disabled map timing does not collect data");
+        captures.Clear();
         h.UnpatchAll(h.Id);
         Console.WriteLine("Render profiler smoke: " + checks + " checks passed");
     }
+    static bool failMap;
+    static bool MapBody(AsyncTimeComp __instance) { __instance.mapTicks++; if (failMap) throw new InvalidOperationException("map fixture"); return false; }
     [MethodImpl(MethodImplOptions.NoInlining)] static int Outer(int input, bool fail) => Inner(input, fail) + 1;
     [MethodImpl(MethodImplOptions.NoInlining)] static int Inner(int input, bool fail)
     {
