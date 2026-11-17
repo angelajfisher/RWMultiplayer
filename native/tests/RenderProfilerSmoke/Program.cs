@@ -19,6 +19,9 @@ static class Program
     {
         Console.WriteLine("Architecture=" + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
         var type = typeof(RenderProfiler);
+        var roots = ((ValueTuple<Type, string>[])AccessTools.Field(type, "roots").GetValue(null));
+        foreach (var root in roots)
+            Check(Array.Exists(root.Item1.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly), m => m.Name == root.Item2), "installed game stage exists: " + root.Item1.FullName + "." + root.Item2);
         var session = new RenderTimingSession(2);
         AccessTools.Field(type, "session").SetValue(null, session);
         AccessTools.Field(type, "mainThread").SetValue(null, Thread.CurrentThread.ManagedThreadId);

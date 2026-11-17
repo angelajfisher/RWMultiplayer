@@ -20,6 +20,19 @@ public static class RenderProfiler
 {
     private const string HarmonyId = "rwmt.Multiplayer.render-profile";
     private const int MaxTargets = 160, MaxFrames = 8192;
+    private static readonly (Type, string)[] roots = {
+            (typeof(DynamicDrawManager), nameof(DynamicDrawManager.DrawDynamicThings)),
+            (typeof(MapDrawer), nameof(MapDrawer.DrawMapMesh)),
+            (typeof(MapDrawer), nameof(MapDrawer.MapMeshDrawerUpdate_First)),
+            (typeof(PawnRenderer), nameof(PawnRenderer.RenderPawnAt)),
+            (typeof(OverlayDrawer), nameof(OverlayDrawer.DrawAllOverlays)),
+            (typeof(DesignationManager), nameof(DesignationManager.DrawDesignations)),
+            (typeof(FleckManager), nameof(FleckManager.FleckManagerDraw)),
+            (typeof(WindowStack), nameof(WindowStack.WindowStackOnGUI)),
+            (typeof(MainButtonsRoot), nameof(MainButtonsRoot.MainButtonsOnGUI)),
+            (typeof(UIRoot_Play), nameof(UIRoot_Play.UIRootUpdate)),
+            (typeof(TickManager), nameof(TickManager.TickManagerUpdate))
+        };
     private static readonly Dictionary<MethodBase, int> indices = new();
     private static readonly List<string> names = new();
     private static readonly List<string> coverage = new();
@@ -46,27 +59,14 @@ public static class RenderProfiler
     {
         mainThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
         var harmony = new Harmony(HarmonyId);
-        var roots = new[] {
-            ("Verse.DynamicDrawManager", "DrawDynamicThings"),
-            ("Verse.MapDrawer", "DrawMapMesh"),
-            ("Verse.MapDrawer", "MapMeshDrawerUpdate_First"),
-            ("Verse.PawnRenderer", "RenderPawnAt"),
-            ("Verse.OverlayDrawer", "DrawAllOverlays"),
-            ("Verse.DesignationManager", "DrawDesignations"),
-            ("Verse.FleckManager", "Draw"),
-            ("Verse.WindowStack", "WindowsOnGUI"),
-            ("RimWorld.MainButtonsRoot", "MainButtonsOnGUI"),
-            ("Verse.UIRoot_Play", "UIRootUpdate"),
-            ("Verse.TickManager", "TickManagerUpdate")
-        };
         var targets = new HashSet<MethodBase>();
         foreach (var root in roots)
         {
-            var type = AccessTools.TypeByName(root.Item1);
+            var type = root.Item1;
             var found = type?.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
                 .Where(m => m.Name == root.Item2 && !m.IsAbstract && !m.ContainsGenericParameters).ToArray();
             if (found?.Length > 0) foreach (var method in found) targets.Add(method);
-            else coverage.Add("Unavailable stage: " + root.Item1 + "." + root.Item2);
+            else coverage.Add("Unavailable stage: " + root.Item1.FullName + "." + root.Item2);
         }
         // Only actual overrides, never shared empty base implementations.
         foreach (var pack in LoadedModManager.RunningModsListForReading)
@@ -74,11 +74,11 @@ public static class RenderProfiler
         {
             Type[] types;
             try { types = asm.GetTypes(); }
-            catch (ReflectionTypeLoadException e) { types = e.Types.Where(t => t != null).ToArray(); }
+            catch (ReflectionTypeLoadException e) { types = e.Types.Where(t => t != null).ToArray(); coverage.Add("Partial type scan: " + asm.GetName().Name); }
             catch { coverage.Add("Could not inspect assembly: " + asm.GetName().Name); continue; }
             foreach (var type in types)
             {
-                if (type.IsAbstract || type.ContainsGenericParameters) continue;
+                if (type.ContainsGenericParameters) continue;
                 string methodName = typeof(MapComponent).IsAssignableFrom(type) ? "MapComponentDraw" :
                     typeof(GameComponent).IsAssignableFrom(type) ? "GameComponentOnGUI" :
                     typeof(WorldComponent).IsAssignableFrom(type) ? "WorldComponentOnGUI" : null;

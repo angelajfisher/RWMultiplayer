@@ -40,7 +40,7 @@ values and exceptions are preserved. The protocol remains 57.
 
 Validation: six .NET accumulator tests cover nested/exclusive accounting,
 recursion/overflow, disabled behavior, restarts/old tokens and mismatched nesting.
-Eight actual Harmony hook checks pass in each of RimWorld's ARM64 and x86-64 Mono
+Nineteen checks pass (eleven installed-stage availability checks and eight actual Harmony hook checks) in each of RimWorld's ARM64 and x86-64 Mono
 runtimes, using controlled methods: results, nested calls, exception propagation,
 cleanup, worker-thread exclusion and stop behavior. These do not execute Unity
 rendering; first real capture also validates stage availability and hotkey/export.
