@@ -5,7 +5,7 @@ Unity Mono's public mono_stack_walk_no_il API, with method-handle tagging and no
 architecture-specific register or private Mono-layout inspection. The managed
 gate now admits both architectures and still requires its startup self-test.
 Missing libraries and failed managed-frame checks continue to disable tracing.
-The Rosetta path remains supported by this same build. Protocol stays at 57.
+The Rosetta path remains supported by this same build. After the upstream dev rebase, this custom build uses protocol 58.
 
 Validation used the exact installed RimWorld Mono runtime/class libraries in
 separate clang-built arm64 and x86_64 hosts, without launching Unity or editing

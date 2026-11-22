@@ -50,7 +50,8 @@ bounded. See TraceRetention.md for memory, report-size and retention details.
 Routine hash summaries keep the first 256 and latest 2,048 hashes plus a rolling
 digest/count covering every capture (six-integer header). A difference outside
 that smaller wire window may still be present in the expanded local reports.
-Normal hash traffic, RNG-state checks, and protocol 57 are unchanged by ARM support.
+Normal hash traffic and RNG-state checks are unchanged by ARM support. The rebased custom build uses protocol 58
+to separate its trace hashes and report packets from upstream protocol 57.
 All players should use the same build. Stack hashes matched for the controlled
 ARM64/x86-64 capture test; in-game architecture/platform parity still needs testing.
 

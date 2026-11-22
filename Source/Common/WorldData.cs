@@ -122,7 +122,7 @@ public class WorldData
             return false;
 
         var actualHash = ComputeHash(worldSnapshot, sessionSnapshot);
-        if (expectedHash.Length > 0 && !actualHash.AsSpan().SequenceEqual(expectedHash))
+        if (expectedHash.Length > 0 && !actualHash.SequenceEqual(expectedHash))
             return false;
 
         savedGame = worldSnapshot;
@@ -152,7 +152,7 @@ public class WorldData
             return false;
 
         var actualHash = ComputeHash(mapSnapshot);
-        if (expectedHash.Length > 0 && !actualHash.AsSpan().SequenceEqual(expectedHash))
+        if (expectedHash.Length > 0 && !actualHash.SequenceEqual(expectedHash))
             return false;
 
         mapData[mapId] = mapSnapshot;

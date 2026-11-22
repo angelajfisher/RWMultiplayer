@@ -47,7 +47,7 @@ toggled. Collection reads timing/graphics metadata, never game RNG or letter IDs
 and does not change time votes or tracing settings. It writes one text report
 after the capture rather than per-event logs. Initialization failures roll back
 the optional hooks. Disabled hooks return before reading timers. Original return
-values and exceptions are preserved. The protocol remains 57.
+values and exceptions are preserved. The rebased custom build uses protocol 58; all peers need matching builds.
 
 Validation: eight .NET tests cover tick normalization, pauses, counter resets,
 exceptions and zero-duration rates, plus nested/exclusive accounting,

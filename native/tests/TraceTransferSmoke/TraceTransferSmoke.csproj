@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net48</TargetFramework><LangVersion>12</LangVersion></PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4566" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.1" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4850" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.6.0" />
     <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
     <Reference Include="Multiplayer"><HintPath>../../../AssembliesCustom/Multiplayer.dll</HintPath><Private>true</Private></Reference>
