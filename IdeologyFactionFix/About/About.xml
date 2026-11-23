@@ -1,0 +1,7 @@
+<ModMetaData>
+  <name>Multiplayer Ideology Faction Fix</name><author>Angela</author><packageId>angelajfisher.ideologyfactionfix</packageId><modVersion>0.1.0</modVersion>
+  <supportedVersions><li>1.6</li></supportedVersions>
+  <modDependencies><li><packageId>rwmt.Multiplayer</packageId><displayName>Multiplayer</displayName></li><li><packageId>brrainz.harmony</packageId><displayName>Harmony</displayName></li><li><packageId>ludeon.rimworld.ideology</packageId><displayName>Ideology</displayName></li></modDependencies>
+  <loadAfter><li>rwmt.Multiplayer</li><li>rwmt.MultiplayerCompatibility</li><li>angelajfisher.multiplayerquestfactionfix</li></loadAfter>
+  <description>Separates shared-ideology follower counts, obligations and single-holder roles by player faction. Preserves role holders and abilities in save data. Tracks tree destruction per map and responsible faction. Install the same version on every multiplayer peer.</description>
+</ModMetaData>
