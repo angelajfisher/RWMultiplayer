@@ -17,8 +17,7 @@ internal static class QuestSelectionPatch
 [HarmonyPatch(typeof(NewQuestLetter), nameof(NewQuestLetter.OpenLetter))]
 internal static class QuestOfferOpenPatch
 {
-    private static bool Prefix(NewQuestLetter __instance) => !QuestOwnership.Enabled ||
-        QuestOwnership.ShouldShow(__instance.quest, MP.RealPlayerFaction);
+    private static bool Prefix(NewQuestLetter __instance) => ActionableLetters.VisibleToViewer(__instance);
 }
 
 // Stop before reward selection/pre-accept callbacks, not only at Quest.Accept.

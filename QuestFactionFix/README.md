@@ -1,3 +1,19 @@
+# Version 0.3.7: suppress spectator quest notifications
+
+Spectators do not see quest notification buttons or automatic quest popups,
+including public/ownerless offers restored during join/rejoin. Direct opening
+of a quest-offer letter is guarded too. Existing saved notification backlogs are
+hidden immediately; no manual dismissal or save edit is required. Colony viewers,
+shared quest invitations, non-quest events and letter history retain their rules.
+
+This is a local presentation filter. Pending decisions, letter IDs and synchronized
+quest state remain intact, so switching into a colony restores its eligible offers.
+The spectator check runs before quest-owner scans. Install the same version on
+all peers and restart; no Multiplayer core or other addon update is needed.
+
+Validation: 129 quest/addon checks pass on ARM64 and Rosetta, including the
+installed ally-sharing integration and 11 spectator notification regressions.
+
 # Version 0.3.6: cheaper quest context lookups
 
 Quest ticks, signals and endings resolve owner and target map together rather

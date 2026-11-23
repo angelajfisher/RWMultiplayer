@@ -34,9 +34,13 @@ public static class ActionableLetters
         if (!QuestOwnership.Enabled) return true;
         var quest = QuestFor(letter);
         if (quest == null) return true;
+        var viewer = Multiplayer.Client.Multiplayer.RealPlayerFaction;
+        // Pending decisions remain in shared simulation state. Suppress only
+        // this viewer's presentation, including ownerless/public replayed offers.
+        if (viewer != null && viewer == Multiplayer.Client.Multiplayer.game?.worldComp?.spectatorFaction) return false;
         // Ordinary quest-offer letters can open the same acceptance UI.
-        if (letter is StandardLetter || letter is NewQuestLetter) return QuestOwnership.ShouldShow(quest, Multiplayer.Client.Multiplayer.RealPlayerFaction);
-        var owner = QuestOwnership.Owner(QuestFor(letter));
-        return owner == null || owner == Multiplayer.Client.Multiplayer.RealPlayerFaction;
+        if (letter is StandardLetter || letter is NewQuestLetter) return QuestOwnership.ShouldShow(quest, viewer);
+        var owner = QuestOwnership.Owner(quest);
+        return owner == null || owner == viewer;
     }
 }

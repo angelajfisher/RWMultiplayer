@@ -11,7 +11,7 @@ public sealed class QuestFactionFixMod : Mod
 		: base(content)
 	{
 		ApplyPatches();
-		Log.Message("[MP Quest Faction Fix] v0.3.6 loaded: quest context, shared/global visibility and notification routing.");
+		Log.Message("[MP Quest Faction Fix] v0.3.7 loaded: faction quest routing; spectator quest notifications hidden.");
 	}
 
 	public static void ApplyPatches()

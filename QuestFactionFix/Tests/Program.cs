@@ -207,6 +207,7 @@ static partial class Program
 
         TestStructReturns();
         TestDryads();
+        TestSpectatorNotifications(quest, globalQuest, colony, other, spectator);
         TestLetters(quest, globalQuest, colony, other, spectator);
         TestHistoryAndDiplomacy(colony, other, spectator);
         TestMarriageOffers(quest, colony, other, spectator);
